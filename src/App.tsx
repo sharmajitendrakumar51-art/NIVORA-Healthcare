@@ -1,0 +1,592 @@
+import React, { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
+import { motion, AnimatePresence } from "motion/react";
+import { Category, Service, Booking, Order, CollectedCash, CartItem, PatientDetails, User } from "./types";
+import { Language, City } from "./utils/translations";
+
+// Page/Component Imports
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+import BookingModal from "./components/BookingModal";
+import AdminSidebar from "./components/AdminSidebar";
+import AdminHeader from "./components/AdminHeader";
+
+// Pages
+import Home from "./pages/Home";
+import DoctorVisit from "./pages/DoctorVisit";
+import ServiceDetails from "./pages/ServiceDetails";
+import Cart from "./pages/Cart";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ResetPassword from "./pages/ResetPassword";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
+
+function NavigationWrapper({
+  cart,
+  user,
+  onLogout,
+  onLoginSuccess,
+  onSearch,
+  searchQuery,
+  categories,
+  services,
+  bookings,
+  orders,
+  collectedCash,
+  onAddToCart,
+  onUpdateQty,
+  onRemoveItem,
+  onProceedToCheckout,
+  onBookImmediate,
+  adminUser,
+  onAdminLogout,
+  onAddCategory,
+  onAddService,
+  onUpdateBookingStatus,
+  onUpdateService,
+  onUpdateCategory,
+  onDeleteCategory,
+  onDeleteService,
+  users,
+  onDeleteUser,
+  adminTab,
+  setAdminTab,
+  language,
+  setLanguage,
+  city,
+  setCity
+}: {
+  cart: CartItem[];
+  user: any;
+  onLogout: () => void;
+  onLoginSuccess: (user: any) => void;
+  onSearch: (q: string) => void;
+  searchQuery: string;
+  categories: Category[];
+  services: Service[];
+  bookings: Booking[];
+  orders: Order[];
+  collectedCash: CollectedCash[];
+  onAddToCart: (s: Service, q: number) => void;
+  onUpdateQty: (id: string, delta: number) => void;
+  onRemoveItem: (id: string) => void;
+  onProceedToCheckout: () => void;
+  onBookImmediate: (s: Service) => void;
+  adminUser: any;
+  onAdminLogout: () => void;
+  onAddCategory: (cat: Partial<Category>) => Promise<any>;
+  onAddService: (srv: Partial<Service>) => Promise<any>;
+  onUpdateBookingStatus: (id: string, s: 'Confirmed' | 'Completed' | 'Cancelled') => Promise<any>;
+  onUpdateService: (id: string, updated: Partial<Service>) => Promise<any>;
+  onUpdateCategory?: (id: string, updated: Partial<Category>) => Promise<any>;
+  onDeleteCategory?: (id: string) => Promise<any>;
+  onDeleteService?: (id: string) => Promise<any>;
+  users: User[];
+  onDeleteUser: (id: string) => Promise<void>;
+  adminTab: string;
+  setAdminTab: (t: string) => void;
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  city: City;
+  setCity: (city: City) => void;
+}) {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith("/admin");
+
+  if (isAdminRoute) {
+    if (location.pathname === "/admin/login" || !adminUser) {
+      return (
+        <Routes>
+          <Route path="/admin/login" element={<Navigate to="/admin" />} />
+          <Route path="*" element={<Navigate to="/admin/login" />} />
+        </Routes>
+      );
+    }
+
+    return (
+      <div className="flex bg-[#F8F9FB] min-h-screen font-sans">
+        <AdminSidebar 
+          currentTab={adminTab} 
+          onTabChange={setAdminTab} 
+          onLogout={onAdminLogout} 
+        />
+        <div className="flex-1 flex flex-col min-w-0">
+          <AdminHeader 
+            title={adminTab} 
+            adminUser={adminUser} 
+          />
+          <main className="flex-grow">
+            <AdminDashboard
+              categories={categories}
+              services={services}
+              bookings={bookings}
+              orders={orders}
+              collectedCash={collectedCash}
+              onAddCategory={onAddCategory}
+              onAddService={onAddService}
+              onUpdateBookingStatus={onUpdateBookingStatus}
+              onUpdateService={onUpdateService}
+              onUpdateCategory={onUpdateCategory}
+              onDeleteCategory={onDeleteCategory}
+              onDeleteService={onDeleteService}
+              users={users}
+              onDeleteUser={onDeleteUser}
+              currentTab={adminTab}
+            />
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Patient Layout
+  return (
+    <div className="flex flex-col min-h-screen bg-[#F8F9FB] font-sans">
+      <Header 
+        cart={cart} 
+        user={user} 
+        onLogout={onLogout} 
+        onSearch={onSearch} 
+        language={language}
+        setLanguage={setLanguage}
+        city={city}
+        setCity={setCity}
+        categories={categories}
+      />
+      <main className="flex-grow">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+          >
+            <Routes>
+              <Route 
+                path="/" 
+                element={
+                  <Home 
+                    categories={categories} 
+                    services={services} 
+                    onBookImmediate={onBookImmediate} 
+                    searchQuery={searchQuery} 
+                    language={language}
+                  />
+                } 
+              />
+              <Route 
+                path="/doctor-visit" 
+                element={
+                  <DoctorVisit 
+                    categories={categories} 
+                    services={services} 
+                    onBookImmediate={onBookImmediate} 
+                    defaultCategoryName="Nurse Care"
+                  />
+                } 
+              />
+              <Route 
+                path="/physiotherapy" 
+                element={
+                  <DoctorVisit 
+                    categories={categories} 
+                    services={services} 
+                    onBookImmediate={onBookImmediate} 
+                    defaultCategoryName="Physiotherapy"
+                  />
+                } 
+              />
+              <Route 
+                path="/iv-therapy" 
+                element={
+                  <DoctorVisit 
+                    categories={categories} 
+                    services={services} 
+                    onBookImmediate={onBookImmediate} 
+                    defaultCategoryName="Nurse Care"
+                  />
+                } 
+              />
+              <Route 
+                path="/lab-tests" 
+                element={
+                  <DoctorVisit 
+                    categories={categories} 
+                    services={services} 
+                    onBookImmediate={onBookImmediate} 
+                    defaultCategoryName="Diagnostics"
+                  />
+                } 
+              />
+              <Route 
+                path="/health-care" 
+                element={
+                  <DoctorVisit 
+                    categories={categories} 
+                    services={services} 
+                    onBookImmediate={onBookImmediate} 
+                    defaultCategoryName="Elder Care"
+                  />
+                } 
+              />
+              <Route 
+                path="/others" 
+                element={
+                  <DoctorVisit 
+                    categories={categories} 
+                    services={services} 
+                    onBookImmediate={onBookImmediate} 
+                    defaultCategoryName="Dental Care"
+                  />
+                } 
+              />
+              <Route 
+                path="/services/:id" 
+                element={
+                  <ServiceDetails 
+                    services={services} 
+                    onAddToCart={onAddToCart} 
+                    onBookImmediate={onBookImmediate} 
+                  />
+                } 
+              />
+              <Route 
+                path="/cart" 
+                element={
+                  <Cart 
+                    cart={cart} 
+                    onUpdateQty={onUpdateQty} 
+                    onRemoveItem={onRemoveItem} 
+                    onProceedToCheckout={onProceedToCheckout} 
+                  />
+                } 
+              />
+              <Route path="/login" element={<Login onLoginSuccess={onLoginSuccess} />} />
+              <Route path="/register" element={<Register onRegisterSuccess={onLoginSuccess} />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </motion.div>
+        </AnimatePresence>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+export default function App() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [collectedCash, setCollectedCash] = useState<CollectedCash[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+
+  // Cart & Authentication state
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem("healthcare_cart");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [user, setUser] = useState<any | null>({
+    id: "USR-002",
+    firstName: "Jane",
+    lastName: "Doe",
+    email: "jane.doe@example.com",
+    phone: "+971 50 123 4567"
+  });
+
+  const [adminUser, setAdminUser] = useState<any | null>(null);
+  const [adminTab, setAdminTab] = useState("categories");
+
+  // Language & City States
+  const [language, setLanguage] = useState<Language>(() => {
+    return (localStorage.getItem("healthcare_language") as Language) || "en";
+  });
+  const [city, setCity] = useState<City>(() => {
+    return (localStorage.getItem("healthcare_city") as City) || "dubai";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("healthcare_language", language);
+    // Dynamically set page direction for RTL Arabic support
+    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
+    document.documentElement.lang = language;
+  }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem("healthcare_city", city);
+  }, [city]);
+
+  // Booking Modal State
+  const [activeBookingService, setActiveBookingService] = useState<Service | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Load all primary data from backend API
+  const loadData = async () => {
+    try {
+      const [catRes, srvRes, bookRes, ordRes, cashRes, userRes] = await Promise.all([
+        fetch("/api/categories").then(r => r.json()),
+        fetch("/api/services").then(r => r.json()),
+        fetch("/api/bookings").then(r => r.json()),
+        fetch("/api/orders").then(r => r.json()),
+        fetch("/api/collected-cash").then(r => r.json()),
+        fetch("/api/users").then(r => r.json())
+      ]);
+
+      setCategories(catRes);
+      setServices(srvRes);
+      setBookings(bookRes);
+      setOrders(ordRes);
+      setCollectedCash(cashRes);
+      setUsers(userRes);
+    } catch (e) {
+      console.error("Error loading full-stack healthcare parameters", e);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("healthcare_cart", JSON.stringify(cart));
+    } catch (e) {
+      console.error("Failed to save cart to localStorage", e);
+    }
+  }, [cart]);
+
+  // API Mutators
+  const handleAddCategory = async (catData: Partial<Category>) => {
+    const res = await fetch("/api/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(catData)
+    });
+    const newCat = await res.json();
+    setCategories(prev => [...prev, newCat]);
+    return newCat;
+  };
+
+  const handleAddService = async (srvData: Partial<Service>) => {
+    const res = await fetch("/api/services", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(srvData)
+    });
+    const newSrv = await res.json();
+    setServices(prev => [newSrv, ...prev]);
+    return newSrv;
+  };
+
+  const handleUpdateBookingStatus = async (id: string, status: 'Confirmed' | 'Completed' | 'Cancelled') => {
+    const res = await fetch(`/api/bookings/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status })
+    });
+    const updated = await res.json();
+    setBookings(prev => prev.map(b => b.id === id ? updated : b));
+    loadData(); // Reload stats/cash collected
+    return updated;
+  };
+
+  const handleUpdateService = async (id: string, updatedFields: Partial<Service>) => {
+    const res = await fetch(`/api/services/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedFields)
+    });
+    const updated = await res.json();
+    setServices(prev => prev.map(s => s.id === id ? updated : s));
+    return updated;
+  };
+
+  const handleUpdateCategory = async (id: string, updatedFields: Partial<Category>) => {
+    const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedFields)
+    });
+    const updated = await res.json();
+    setCategories(prev => prev.map(c => c.id === id ? updated : c));
+    return updated;
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    await fetch(`/api/categories/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    });
+    setCategories(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handleDeleteService = async (id: string) => {
+    await fetch(`/api/services/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    });
+    setServices(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    await fetch(`/api/users/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    });
+    setUsers(prev => prev.filter(u => u.id !== id));
+  };
+
+  // Cart operations
+  const handleAddToCart = (service: Service, quantity: number) => {
+    setCart(prev => {
+      const idx = prev.findIndex(item => item.service.id === service.id);
+      if (idx !== -1) {
+        const next = [...prev];
+        next[idx].quantity += quantity;
+        return next;
+      }
+      return [...prev, { service, quantity }];
+    });
+  };
+
+  const handleUpdateQty = (serviceId: string, delta: number) => {
+    setCart(prev => {
+      return prev.map(item => {
+        if (item.service.id === serviceId) {
+          const qty = Math.max(1, item.quantity + delta);
+          return { ...item, quantity: qty };
+        }
+        return item;
+      });
+    });
+  };
+
+  const handleRemoveItem = (serviceId: string) => {
+    setCart(prev => prev.filter(item => item.service.id !== serviceId));
+  };
+
+  const handleProceedToCheckout = () => {
+    if (cart.length > 0) {
+      setActiveBookingService(cart[0].service);
+    }
+  };
+
+  const handleBookImmediate = (service: Service) => {
+    setActiveBookingService(service);
+  };
+
+  const handleConfirmBooking = async (bookingDetails: {
+    date: string;
+    time: string;
+    slot: "Morning" | "Afternoon" | "Evening";
+    bookingForSomeoneElse: boolean;
+    patientDetails: PatientDetails;
+    notes: string;
+  }) => {
+    if (!activeBookingService) return;
+
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceId: activeBookingService.id,
+          ...bookingDetails
+        })
+      });
+
+      if (res.ok) {
+        // Clear item from cart if it was matched
+        setCart(prev => prev.filter(item => item.service.id !== activeBookingService.id));
+        setActiveBookingService(null);
+        loadData(); // Fetch fresh bookings list and cash collections
+      }
+    } catch (e) {
+      console.error("Booking error", e);
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+  };
+
+  const handleLoginSuccess = (userData: any) => {
+    setUser(userData);
+  };
+
+  const handleAdminLogout = () => {
+    setAdminUser(null);
+  };
+
+  const handleAdminLoginSuccess = (adminData: any) => {
+    setAdminUser(adminData);
+  };
+
+  return (
+    <Router>
+      <Routes>
+        {/* Admin security gate */}
+        <Route 
+          path="/admin/login" 
+          element={<AdminLogin onAdminLoginSuccess={handleAdminLoginSuccess} />} 
+        />
+        
+        {/* All other routes */}
+        <Route 
+          path="*" 
+          element={
+            <NavigationWrapper
+              cart={cart}
+              user={user}
+              onLogout={handleLogout}
+              onLoginSuccess={handleLoginSuccess}
+              onSearch={setSearchQuery}
+              searchQuery={searchQuery}
+              categories={categories}
+              services={services}
+              bookings={bookings}
+              orders={orders}
+              collectedCash={collectedCash}
+              onAddToCart={handleAddToCart}
+              onUpdateQty={handleUpdateQty}
+              onRemoveItem={handleRemoveItem}
+              onProceedToCheckout={handleProceedToCheckout}
+              onBookImmediate={handleBookImmediate}
+              adminUser={adminUser}
+              onAdminLogout={handleAdminLogout}
+              onAddCategory={handleAddCategory}
+              onAddService={handleAddService}
+              onUpdateBookingStatus={handleUpdateBookingStatus}
+              onUpdateService={handleUpdateService}
+              onUpdateCategory={handleUpdateCategory}
+              onDeleteCategory={handleDeleteCategory}
+              onDeleteService={handleDeleteService}
+              users={users}
+              onDeleteUser={handleDeleteUser}
+              adminTab={adminTab}
+              setAdminTab={setAdminTab}
+              language={language}
+              setLanguage={setLanguage}
+              city={city}
+              setCity={setCity}
+            />
+          } 
+        />
+      </Routes>
+
+      {/* Main Global Appointment Modal Popup */}
+      {activeBookingService && (
+        <BookingModal
+          isOpen={!!activeBookingService}
+          onClose={() => setActiveBookingService(null)}
+          service={activeBookingService}
+          onConfirm={handleConfirmBooking}
+        />
+      )}
+    </Router>
+  );
+}

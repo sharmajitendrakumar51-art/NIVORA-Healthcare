@@ -1,0 +1,6 @@
+{
+  "name": "Nivora Healthcare",
+  "description": "An Enterprise Healthcare Management System for hospitals, labs, physiotherapy centers, and practitioners.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
