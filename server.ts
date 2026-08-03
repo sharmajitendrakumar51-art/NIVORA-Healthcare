@@ -736,7 +736,13 @@ app.post("/api/auth/login", async (req, res) => {
     
     // Super Admin / Admin Login
     if (normalizedEmail === "nivora@gmail.com" || normalizedEmail === "admin@nivora.org") {
-      const isPasswordValid = password === "nivora" || bcrypt.compareSync(password, ADMIN_PASSWORD_HASH);
+      let isPasswordValid = false;
+      try {
+        isPasswordValid = password === "nivora" || (typeof password === "string" && bcrypt.compareSync(password, ADMIN_PASSWORD_HASH));
+      } catch {
+        isPasswordValid = password === "nivora";
+      }
+
       if (!isPasswordValid) {
         return res.status(401).json({ success: false, message: "Invalid email or security password." });
       }
@@ -764,7 +770,13 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     // Doctor Login check
-    const doc = await findDoctorByEmail(email);
+    let doc = null;
+    try {
+      doc = await findDoctorByEmail(email);
+    } catch (e) {
+      console.warn("Doctor DB lookup warning:", e);
+    }
+
     if (doc || normalizedEmail.includes("doctor") || normalizedEmail.includes("doc")) {
       const doctorObj = doc || {
         id: "DOC-101",
@@ -788,7 +800,13 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     // Find user in db
-    const user = await findUserByEmail(email);
+    let user = null;
+    try {
+      user = await findUserByEmail(email);
+    } catch (e) {
+      console.warn("User DB lookup warning:", e);
+    }
+
     if (user && password === "password") {
       const token = jwt.sign(
         { id: user.id, email: user.email, firstName: user.firstName, role: "User" },
@@ -805,7 +823,7 @@ app.post("/api/auth/login", async (req, res) => {
 
     // Dynamic user creation if not found for seamless user onboarding
     if (email && password) {
-      let existingUser = await findUserByEmail(email);
+      let existingUser = user;
       if (!existingUser) {
         existingUser = {
           id: "USR-" + Math.floor(1000 + Math.random() * 9000),
@@ -814,7 +832,11 @@ app.post("/api/auth/login", async (req, res) => {
           email: email,
           phone: "+1 (555) 000-0000"
         };
-        await addUser(existingUser);
+        try {
+          await addUser(existingUser);
+        } catch (e) {
+          console.warn("User auto-add warning:", e);
+        }
       }
       const token = jwt.sign(
         { id: existingUser.id, email: existingUser.email, firstName: existingUser.firstName, role: "User" },
