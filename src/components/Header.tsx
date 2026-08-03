@@ -204,10 +204,10 @@ export default function Header({
                 className="flex items-center space-x-1.5 p-1 pr-2.5 rounded-full border border-slate-200 hover:border-primary-blue bg-white text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs"
               >
                 <div className="w-7 h-7 rounded-full bg-primary-green text-white font-bold text-xs flex items-center justify-center">
-                  {user.firstName[0]}
+                  {user.firstName?.[0] || user.email?.[0] || "U"}
                 </div>
                 <span className="text-xs font-semibold hidden sm:inline-block max-w-[80px] truncate">
-                  {user.firstName}
+                  {user.firstName || user.email || "User"}
                 </span>
                 <ChevronDown className="w-3 h-3 text-slate-400" />
               </button>
