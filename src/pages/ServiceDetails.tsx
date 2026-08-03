@@ -73,6 +73,10 @@ export default function ServiceDetails({ services, onAddToCart, onBookImmediate 
                 src={getImageUrl(service.image)} 
                 alt={service.name} 
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).onerror = null;
+                  (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1504813184591-015556c5c528?auto=format&fit=crop&w=500&q=80";
+                }}
               />
               <span className="absolute top-4 left-4 bg-rose-500 text-white text-xs font-bold px-3.5 py-1 rounded-full uppercase tracking-wider shadow-sm">
                 Save {discountPct}%

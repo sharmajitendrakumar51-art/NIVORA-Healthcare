@@ -25,15 +25,31 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         body: JSON.stringify({ email, password })
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      let data: any = {};
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        console.warn("Non-JSON response from login endpoint:", text);
+      }
+
       if (res.ok && data.success) {
-        onLoginSuccess(data.user);
+        if (data.token) {
+          localStorage.setItem("nivora_token", data.token);
+          localStorage.setItem("token", data.token);
+        }
+        if (data.user) {
+          localStorage.setItem("nivora_user", JSON.stringify(data.user));
+        }
+        onLoginSuccess({ ...data.user, token: data.token });
         navigate("/");
       } else {
         setError(data.message || "Invalid email or password.");
       }
-    } catch (err) {
-      setError("Unable to connect to the healthcare server.");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError("Unable to connect to the healthcare server. Please verify your internet connection.");
     } finally {
       setLoading(false);
     }

@@ -17,10 +17,22 @@ import {
   ToggleRight,
   ShieldCheck,
   Building,
-  UserCheck
+  UserCheck,
+  Eye,
+  ShoppingBag,
+  Search,
+  Filter,
+  CreditCard,
+  Banknote,
+  X,
+  FileText,
+  MessageSquare,
+  RefreshCw
 } from "lucide-react";
-import { Category, Service, Booking, Order, CollectedCash, PatientDetails, User } from "../types";
+import { Category, Service, Booking, Order, CollectedCash, PatientDetails, User, Doctor } from "../types";
+import { sendAppointmentCancellationEmail, sendAppointmentConfirmationEmail } from "../services/emailService";
 import { getImageUrl } from "../utils/translations";
+import DoctorPatientChatModal from "../components/DoctorPatientChatModal";
 
 interface AdminDashboardProps {
   categories: Category[];
@@ -58,6 +70,312 @@ export default function AdminDashboard({
   currentTab = "categories"
 }: AdminDashboardProps) {
   const [successMsg, setSuccessMsg] = useState("");
+
+  // Doctor Management State
+  const [doctorsList, setDoctorsList] = useState<Doctor[]>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+  const [showDoctorModal, setShowDoctorModal] = useState(false);
+  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+  const [doctorSearch, setDoctorSearch] = useState("");
+  const [practitionerSearch, setPractitionerSearch] = useState("");
+  const [selectedPractitionerForModal, setSelectedPractitionerForModal] = useState<Doctor | null>(null);
+  const [selectedDoctorForAssign, setSelectedDoctorForAssign] = useState<{ [appointmentId: string]: string }>({});
+
+  const [doctorForm, setDoctorForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    specialization: "",
+    qualification: "",
+    experience: "",
+    availability: "",
+    consultationMode: "",
+    licenseNumber: "",
+    status: "Active" as "Active" | "Inactive",
+    profilePhoto: ""
+  });
+
+  const fetchDoctors = async () => {
+    setLoadingDoctors(true);
+    try {
+      const res = await fetch("/api/doctors");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setDoctorsList(data);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctors:", err);
+    } finally {
+      setLoadingDoctors(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDoctors();
+  }, []);
+
+  const handleDoctorPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64Data = reader.result as string;
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64Data, name: file.name })
+        });
+        const data = await res.json();
+        if (data.success && data.url) {
+          setDoctorForm(prev => ({ ...prev, profilePhoto: data.url }));
+        }
+      } catch (err) {
+        console.error("Doctor photo upload error:", err);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveDoctor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const isEdit = Boolean(editingDoctor);
+      const url = isEdit ? `/api/doctors/${editingDoctor?.id}` : "/api/doctors";
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(doctorForm)
+      });
+
+      if (res.ok) {
+        setSuccessMsg(isEdit ? "Doctor details updated successfully!" : "New Doctor registered successfully!");
+        setTimeout(() => setSuccessMsg(""), 3500);
+        setShowDoctorModal(false);
+        setEditingDoctor(null);
+        setDoctorForm({
+          fullName: "",
+          email: "",
+          phone: "",
+          specialization: "",
+          qualification: "",
+          experience: "",
+          availability: "",
+          consultationMode: "",
+          licenseNumber: "",
+          status: "Active",
+          profilePhoto: ""
+        });
+        fetchDoctors();
+      }
+    } catch (err) {
+      console.error("Failed to save doctor:", err);
+    }
+  };
+
+  const handleOpenEditDoctor = (doc: Doctor) => {
+    setEditingDoctor(doc);
+    setDoctorForm({
+      fullName: doc.fullName || "",
+      email: doc.email || "",
+      phone: doc.phone || "",
+      specialization: doc.specialization || "",
+      qualification: doc.qualification || "",
+      experience: doc.experience || "",
+      availability: doc.availability || "",
+      consultationMode: doc.consultationMode || "In-Home Visit & Teleconsultation",
+      licenseNumber: doc.licenseNumber || "",
+      status: doc.status || "Active",
+      profilePhoto: doc.profilePhoto || ""
+    });
+    setShowDoctorModal(true);
+  };
+
+  const handleDeleteDoctor = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this doctor record?")) return;
+    try {
+      const res = await fetch(`/api/doctors/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) {
+        setSuccessMsg("Doctor removed from directory.");
+        setTimeout(() => setSuccessMsg(""), 3000);
+        fetchDoctors();
+      }
+    } catch (err) {
+      console.error("Failed to delete doctor:", err);
+    }
+  };
+
+  const handleAssignDoctor = async (appointmentId: string, docId: string) => {
+    if (!docId) return;
+    const doc = doctorsList.find(d => d.id === docId);
+    if (!doc) return;
+
+    try {
+      const token = localStorage.getItem("nivora_token") || localStorage.getItem("token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/admin/appointments/${encodeURIComponent(appointmentId)}/assign`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({
+          doctorId: doc.id,
+          doctorName: doc.fullName,
+          doctorEmail: doc.email,
+          doctorPhone: doc.phone,
+          doctorSpecialization: doc.specialization,
+          doctorPhoto: doc.profilePhoto
+        })
+      });
+
+      if (res.ok) {
+        const targetOrder = adminOrdersList.find(o => o.id === appointmentId);
+        if (targetOrder) {
+          sendAppointmentConfirmationEmail({
+            patientName: targetOrder.patientName || targetOrder.customerName || "Valued Patient",
+            patientEmail: targetOrder.email || targetOrder.customerEmail || "",
+            doctorName: doc.fullName,
+            appointmentDate: targetOrder.appointmentDate || targetOrder.date || "Scheduled Date",
+            appointmentTime: targetOrder.appointmentTime || "10:00 AM",
+            totalAmount: targetOrder.totalAmount || targetOrder.total,
+            paymentMethod: targetOrder.paymentMethod,
+            notes: targetOrder.notes
+          }).catch(err => console.warn("EmailJS notification error:", err));
+        }
+
+        setSuccessMsg(`Doctor ${doc.fullName} assigned to appointment ${appointmentId}! Status set to Confirmed & Confirmation Email dispatched.`);
+        setTimeout(() => setSuccessMsg(""), 4500);
+        fetchAdminOrders();
+      }
+    } catch (err) {
+      console.error("Error assigning doctor:", err);
+    }
+  };
+
+  // Orders Management State
+  const [orderSearch, setOrderSearch] = useState("");
+  const [orderFilter, setOrderFilter] = useState<"ALL" | "Razorpay" | "Cash on Appointment">("ALL");
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
+  const [activeAdminChatOrder, setActiveAdminChatOrder] = useState<Order | null>(null);
+
+  const [adminOrdersList, setAdminOrdersList] = useState<Order[]>(orders || []);
+
+  useEffect(() => {
+    if (orders && orders.length > 0) {
+      setAdminOrdersList(orders);
+    }
+  }, [orders]);
+
+  const fetchAdminOrders = async () => {
+    try {
+      const token = localStorage.getItem("nivora_token") || localStorage.getItem("token");
+      const headers: Record<string, string> = token ? { "Authorization": `Bearer ${token}` } : {};
+      const res = await fetch("/api/admin/orders", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setAdminOrdersList(data);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching admin orders:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdminOrders();
+  }, [currentTab]);
+
+  const handleUpdateOrderStatus = async (orderId: string, orderStatus: string, paymentStatus?: string) => {
+    try {
+      const targetPaymentStatus = paymentStatus || (orderStatus === "Completed" ? "Paid" : undefined);
+
+      // Optimistic UI state update
+      setAdminOrdersList((prevOrders) =>
+        prevOrders.map((ord) =>
+          ord.id === orderId || (ord as any)._id === orderId
+            ? {
+                ...ord,
+                orderStatus,
+                status: orderStatus,
+                ...(targetPaymentStatus ? { paymentStatus: targetPaymentStatus } : {})
+              }
+            : ord
+        )
+      );
+
+      if (selectedOrderDetails && (selectedOrderDetails.id === orderId || (selectedOrderDetails as any)._id === orderId)) {
+        setSelectedOrderDetails((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                orderStatus,
+                status: orderStatus,
+                ...(targetPaymentStatus ? { paymentStatus: targetPaymentStatus } : {})
+              }
+            : null
+        );
+      }
+
+      const token = localStorage.getItem("nivora_token") || localStorage.getItem("token");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+
+      const body: any = { orderStatus, status: orderStatus };
+      if (targetPaymentStatus) body.paymentStatus = targetPaymentStatus;
+
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify(body)
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        showToast(`Order status updated to ${orderStatus}`);
+        if (selectedOrderDetails && (selectedOrderDetails.id === orderId || (selectedOrderDetails as any)._id === orderId)) {
+          setSelectedOrderDetails(updated);
+        }
+        await fetchAdminOrders();
+
+        if (orderStatus === "Cancelled") {
+          const ord = updated || adminOrdersList.find(o => o.id === orderId || (o as any)._id === orderId) || selectedOrderDetails;
+          if (ord) {
+            const userName = ord.patientName || ord.customerName || (ord.firstName ? `${ord.firstName} ${ord.lastName}` : "Patient");
+            const userEmail = ord.email || ord.customerEmail || "";
+            const doctorName = ord.services?.[0]?.serviceName || ord.items?.[0]?.serviceName || ord.serviceName || "Nivora Healthcare Specialist";
+            const appointmentDate = ord.appointmentDate || ord.date || "Scheduled Date";
+            const appointmentTime = ord.appointmentTime || ord.time || "Scheduled Time";
+
+            if (userEmail) {
+              sendAppointmentCancellationEmail({
+                userName,
+                userEmail,
+                doctorName,
+                appointmentDate,
+                appointmentTime
+              }).catch((emailErr) => {
+                console.error("EmailJS sending error (order cancellation):", emailErr);
+              });
+            }
+          }
+        }
+      } else {
+        showToast("Failed to update order status.");
+        await fetchAdminOrders();
+      }
+    } catch (err: any) {
+      showToast("Error updating order status: " + err.message);
+      await fetchAdminOrders();
+    }
+  };
 
   // Deletion confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -238,10 +556,14 @@ export default function AdminDashboard({
     e.preventDefault();
     if (!srvName || !srvCatId) return;
 
+    const matchedCat = categories.find(c => c.id === srvCatId);
+    const categoryName = matchedCat ? matchedCat.name : "General";
+
     if (editingSrv) {
       await onUpdateService(editingSrv.id, {
         name: srvName,
         categoryId: srvCatId,
+        categoryName,
         shortDescription: srvShortDesc,
         longDescription: srvLongDesc,
         image: srvImage || "https://images.unsplash.com/photo-1504813184591-015556c5c528?auto=format&fit=crop&w=500&q=80",
@@ -257,6 +579,7 @@ export default function AdminDashboard({
       await onAddService({
         name: srvName,
         categoryId: srvCatId,
+        categoryName,
         shortDescription: srvShortDesc,
         longDescription: srvLongDesc,
         image: srvImage || "https://images.unsplash.com/photo-1504813184591-015556c5c528?auto=format&fit=crop&w=500&q=80",
@@ -749,7 +1072,9 @@ export default function AdminDashboard({
                           />
                         </td>
                         <td className="p-4 font-bold text-slate-850">{srv.name}</td>
-                        <td className="p-4 text-gray-500">{srv.categoryName}</td>
+                        <td className="p-4 text-gray-500">
+                          {categories.find(c => c.id === srv.categoryId)?.name || srv.categoryName || "General"}
+                        </td>
                         <td className="p-4 text-gray-400 font-mono">AED {srv.mrpPrice}</td>
                         <td className="p-4 font-bold font-mono text-slate-800">AED {srv.sellingPrice}</td>
                         <td className="p-4 text-slate-500">{srv.ageGroup}</td>
@@ -1048,6 +1373,200 @@ export default function AdminDashboard({
           </div>
         )}
 
+        {/* TAB: ORDERS MANAGEMENT */}
+        {currentTab === "orders" && (
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm animate-in fade-in duration-200 space-y-4 p-4">
+            {/* Header & Controls */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-3 border-b border-gray-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-850 uppercase tracking-wider font-display flex items-center space-x-2">
+                  <ShoppingBag className="w-4 h-4 text-primary-blue" />
+                  <span>Orders Management & Payment Status</span>
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">Manage, filter, and track all patient orders and Razorpay/Cash transactions.</p>
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Search ID, name, email..."
+                    value={orderSearch}
+                    onChange={(e) => setOrderSearch(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue/20 bg-gray-50 w-48"
+                  />
+                </div>
+
+                <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg">
+                  <button
+                    onClick={() => setOrderFilter("ALL")}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${
+                      orderFilter === "ALL" ? "bg-white text-slate-900 shadow-xs" : "text-gray-500 hover:text-gray-800"
+                    }`}
+                  >
+                    All Orders
+                  </button>
+                  <button
+                    onClick={() => setOrderFilter("Razorpay")}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition flex items-center space-x-1 ${
+                      orderFilter === "Razorpay" ? "bg-white text-blue-700 shadow-xs" : "text-gray-500 hover:text-gray-800"
+                    }`}
+                  >
+                    <CreditCard className="w-3 h-3 text-blue-600" />
+                    <span>Razorpay</span>
+                  </button>
+                  <button
+                    onClick={() => setOrderFilter("Cash on Appointment")}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition flex items-center space-x-1 ${
+                      orderFilter === "Cash on Appointment" ? "bg-white text-emerald-700 shadow-xs" : "text-gray-500 hover:text-gray-800"
+                    }`}
+                  >
+                    <Banknote className="w-3 h-3 text-emerald-600" />
+                    <span>Cash</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Orders Table */}
+            <div className="overflow-x-auto">
+              {(() => {
+                const sourceOrders = adminOrdersList.length > 0 ? adminOrdersList : orders;
+                const filteredOrders = sourceOrders.filter((o) => {
+                  const matchFilter = orderFilter === "ALL" || o.paymentMethod === orderFilter;
+                  const query = orderSearch.toLowerCase();
+                  const name = (o.patientName || o.customerName || "").toLowerCase();
+                  const email = (o.email || o.customerEmail || "").toLowerCase();
+                  const phone = (o.phone || "").toLowerCase();
+                  const id = (o.id || "").toLowerCase();
+                  const serviceName = (o.services?.map((s: any) => s.serviceName).join(" ") || o.serviceName || "").toLowerCase();
+                  const matchSearch = !query || name.includes(query) || email.includes(query) || phone.includes(query) || id.includes(query) || serviceName.includes(query);
+                  return matchFilter && matchSearch;
+                });
+
+                if (filteredOrders.length === 0) {
+                  return (
+                    <div className="text-center py-12 text-gray-400 text-xs font-semibold">
+                      No orders found matching criteria.
+                    </div>
+                  );
+                }
+
+                return (
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-gray-100/50 border-b border-gray-150 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                        <th className="p-3">Order ID</th>
+                        <th className="p-3">Patient Name</th>
+                        <th className="p-3">User Name / Email</th>
+                        <th className="p-3">Phone</th>
+                        <th className="p-3">Appointment Date</th>
+                        <th className="p-3">Appointment Time</th>
+                        <th className="p-3">Service Name</th>
+                        <th className="p-3">Payment Method</th>
+                        <th className="p-3">Payment Status</th>
+                        <th className="p-3">Order Status</th>
+                        <th className="p-3">Total Amount</th>
+                        <th className="p-3">Booking Date</th>
+                        <th className="p-3 text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredOrders.map((ord) => {
+                        const patientName = ord.patientName || ord.customerName || "N/A";
+                        const userName = (ord.email ? ord.email.split("@")[0] : "") || ord.userId || "Registered User";
+                        const email = ord.email || ord.customerEmail || "N/A";
+                        const phone = ord.phone || "N/A";
+                        const apptDate = ord.appointmentDate || ord.date || "N/A";
+                        const apptTime = ord.appointmentTime || ord.timeSlot || "Standard";
+                        const serviceName = ord.services?.map((s: any) => s.serviceName).join(", ") || ord.serviceName || "Healthcare Service";
+                        const totalAmt = ord.totalAmount || ord.total || 0;
+                        const bookingDate = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : (ord.date || "N/A");
+
+                        return (
+                          <tr key={ord.id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="p-3 font-mono font-bold text-slate-800">{ord.id}</td>
+                            <td className="p-3">
+                              <div className="font-bold text-slate-850">{patientName}</div>
+                              {ord.relation && <div className="text-[10px] text-gray-400">({ord.relation})</div>}
+                            </td>
+                            <td className="p-3">
+                              <div className="font-semibold text-slate-800">{userName}</div>
+                              <div className="text-[10px] text-gray-400">{email}</div>
+                            </td>
+                            <td className="p-3 font-medium text-slate-700">{phone}</td>
+                            <td className="p-3 text-slate-800 font-medium">{apptDate}</td>
+                            <td className="p-3 text-slate-600 font-medium">{apptTime}</td>
+                            <td className="p-3 font-semibold text-slate-800 max-w-[150px] truncate" title={serviceName}>{serviceName}</td>
+                            <td className="p-3">
+                              <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                ord.paymentMethod === "Razorpay" 
+                                  ? "bg-blue-50 text-blue-700 border border-blue-200" 
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              }`}>
+                                {ord.paymentMethod === "Razorpay" ? <CreditCard className="w-3 h-3" /> : <Banknote className="w-3 h-3" />}
+                                <span>{ord.paymentMethod || "Cash"}</span>
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 text-[9px] font-bold rounded ${
+                                ord.paymentStatus === "Paid"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : ord.paymentStatus === "Pending"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-rose-100 text-rose-800"
+                              }`}>
+                                {ord.paymentStatus || "Pending"}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <select
+                                value={ord.orderStatus || ord.status || "Booked"}
+                                onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value)}
+                                className="text-[11px] font-bold px-2 py-1 rounded border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-primary-blue cursor-pointer"
+                              >
+                                <option value="Booked">Booked</option>
+                                <option value="Confirmed">Confirmed</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                              </select>
+                            </td>
+                            <td className="p-3 font-black text-slate-900">
+                              ₹{totalAmt}
+                            </td>
+                            <td className="p-3 text-gray-500 font-medium text-[11px]">{bookingDate}</td>
+                            <td className="p-3 text-center">
+                              <div className="flex items-center justify-center space-x-1.5">
+                                <button
+                                  onClick={() => setActiveAdminChatOrder(ord)}
+                                  className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg transition text-[10px] inline-flex items-center space-x-1 cursor-pointer shadow-xs"
+                                  title="Open live chat with patient"
+                                >
+                                  <MessageSquare className="w-3 h-3 text-emerald-200" />
+                                  <span>Chat</span>
+                                </button>
+                                <button
+                                  onClick={() => setSelectedOrderDetails(ord)}
+                                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg transition text-[10px] inline-flex items-center space-x-1 cursor-pointer"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>Details</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
         {/* TAB 8: COLLECTED CASH */}
         {currentTab === "collected-cash" && (
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm animate-in fade-in duration-200">
@@ -1103,27 +1622,368 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* TAB 10: PRACTITIONERS */}
+        {/* TAB: DOCTOR ASSIGNMENT */}
+        {currentTab === "doctor-assignment" && (
+          <div className="space-y-6">
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-850 font-display">Doctor Assignment System</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Assign licensed medical specialists to pending patient bookings. Assigning a doctor automatically sets appointment status to <strong className="text-emerald-700">Confirmed</strong> and dispatches EmailJS confirmation.
+                </p>
+              </div>
+              <button
+                onClick={fetchAdminOrders}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center space-x-2 shrink-0 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh Appointments</span>
+              </button>
+            </div>
+
+            {/* Pending Appointments List */}
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+                <span className="text-xs font-bold uppercase tracking-wider font-display flex items-center space-x-2">
+                  <UserCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Appointments Requiring Doctor Assignment</span>
+                </span>
+                <span className="text-xs font-mono font-bold bg-slate-800 px-2.5 py-1 rounded-md text-emerald-300">
+                  {adminOrdersList.filter(o => !o.assignedDoctor || o.orderStatus === "Pending").length} Pending
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-gray-100/60 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                      <th className="p-3">Appt ID</th>
+                      <th className="p-3">Patient Name & Email</th>
+                      <th className="p-3">Schedule Date & Time</th>
+                      <th className="p-3">Booked Service</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Assigned Doctor</th>
+                      <th className="p-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {adminOrdersList.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-gray-400">
+                          No appointments found.
+                        </td>
+                      </tr>
+                    ) : (
+                      adminOrdersList.map((ord) => {
+                        const servicesStr = (ord.services || ord.items || []).map(s => s.serviceName).join(", ") || "General Visit";
+                        const currentDocId = selectedDoctorForAssign[ord.id] || ord.assignedDoctor || "";
+
+                        return (
+                          <tr key={ord.id} className="hover:bg-gray-50/60 transition">
+                            <td className="p-3 font-mono font-bold text-slate-800">{ord.id}</td>
+                            <td className="p-3">
+                              <div className="font-bold text-slate-900">{ord.patientName || ord.customerName}</div>
+                              <div className="text-[10px] text-gray-500">{ord.email || ord.customerEmail}</div>
+                              <div className="text-[10px] text-gray-400">{ord.phone || "N/A"}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="font-bold text-slate-800">{ord.appointmentDate || ord.date}</div>
+                              <div className="text-[10px] text-gray-500">{ord.appointmentTime || "10:00 AM"}</div>
+                            </td>
+                            <td className="p-3 font-medium text-slate-800 max-w-[160px] truncate" title={servicesStr}>
+                              {servicesStr}
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${
+                                ord.assignedDoctorName || ord.orderStatus === "Confirmed"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : ord.orderStatus === "Completed"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}>
+                                {ord.assignedDoctorName ? "● Confirmed" : `● ${ord.orderStatus || "Pending"}`}
+                              </span>
+                            </td>
+                            <td className="p-3 min-w-[200px]">
+                              {ord.assignedDoctorName ? (
+                                <div className="flex items-center space-x-2">
+                                  <img
+                                    src={ord.assignedDoctorPhoto || "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=100&q=80"}
+                                    alt={ord.assignedDoctorName}
+                                    className="w-7 h-7 rounded-full object-cover border border-emerald-300"
+                                  />
+                                  <div>
+                                    <p className="font-bold text-slate-900 text-xs">{ord.assignedDoctorName}</p>
+                                    <p className="text-[9px] text-emerald-700">{ord.assignedDoctorSpecialization}</p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <select
+                                  value={currentDocId}
+                                  onChange={(e) => setSelectedDoctorForAssign({ ...selectedDoctorForAssign, [ord.id]: e.target.value })}
+                                  className="w-full text-xs font-semibold px-2 py-1.5 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                                >
+                                  <option value="">-- Select Specialist Doctor --</option>
+                                  {doctorsList.filter(d => d.status === "Active").map((doc) => (
+                                    <option key={doc.id} value={doc.id}>
+                                      {doc.fullName} ({doc.specialization})
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </td>
+                            <td className="p-3 text-center">
+                              {ord.assignedDoctorName ? (
+                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                                  ✓ Doctor Assigned
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleAssignDoctor(ord.id, selectedDoctorForAssign[ord.id])}
+                                  disabled={!selectedDoctorForAssign[ord.id]}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg transition text-xs shadow-xs cursor-pointer"
+                                >
+                                  Assign Doctor
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: DOCTOR DIRECTORY MANAGEMENT (MASTER DATABASE) */}
+        {currentTab === "doctor-management" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <Stethoscope className="w-5 h-5 text-emerald-600" />
+                  <h3 className="text-base font-bold text-slate-850 font-display">Doctor Directory (Master Database)</h3>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Master credential database for all licensed medical doctors. Manage doctor credentials, DHA licenses, contact info, and availability.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    placeholder="Search doctor, DHA license..."
+                    value={doctorSearch}
+                    onChange={(e) => setDoctorSearch(e.target.value)}
+                    className="pl-8 pr-3 py-2 text-xs border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full sm:w-60"
+                  />
+                </div>
+
+                <button
+                  onClick={() => {
+                    setEditingDoctor(null);
+                    setDoctorForm({
+                      fullName: "",
+                      email: "",
+                      phone: "",
+                      specialization: "",
+                      qualification: "",
+                      experience: "",
+                      availability: "",
+                      consultationMode: "In-Home Visit & Teleconsultation",
+                      licenseNumber: "",
+                      status: "Active",
+                      profilePhoto: ""
+                    });
+                    setShowDoctorModal(true);
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center justify-center space-x-2 shrink-0 cursor-pointer shadow-md"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Register New Doctor</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Doctors Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {doctorsList
+                .filter(doc => 
+                  !doctorSearch || 
+                  doc.fullName.toLowerCase().includes(doctorSearch.toLowerCase()) ||
+                  doc.specialization.toLowerCase().includes(doctorSearch.toLowerCase()) ||
+                  (doc.licenseNumber && doc.licenseNumber.toLowerCase().includes(doctorSearch.toLowerCase()))
+                )
+                .map((doc) => (
+                  <div key={doc.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition space-y-4 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center space-x-3">
+                          <img
+                            src={getImageUrl(doc.profilePhoto)}
+                            alt={doc.fullName}
+                            className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-400 shadow-xs"
+                          />
+                          <div>
+                            <span className="font-mono text-[9px] font-bold text-gray-400">{doc.id}</span>
+                            <h4 className="font-bold text-slate-900 text-sm font-display leading-tight">{doc.fullName}</h4>
+                            <p className="text-xs font-semibold text-emerald-700 mt-0.5">{doc.specialization}</p>
+                          </div>
+                        </div>
+
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          doc.status === "Active" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-rose-100 text-rose-800 border border-rose-200"
+                        }`}>
+                          {doc.status}
+                        </span>
+                      </div>
+
+                      <div className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-gray-100">
+                        <p><strong className="text-slate-800">🎓 Qualification:</strong> {doc.qualification || "MD / MBBS"}</p>
+                        <p><strong className="text-slate-800">⏱️ Experience:</strong> {doc.experience || "5+ Years"}</p>
+                        <p><strong className="text-slate-800">🏥 License No:</strong> <span className="font-mono font-bold text-slate-700">{doc.licenseNumber || "DHA-LIC-90124"}</span></p>
+                        <p><strong className="text-slate-800">🌐 Consultation:</strong> {doc.consultationMode || "In-Home Visit & Teleconsultation"}</p>
+                        <p><strong className="text-slate-800">✉️ Email:</strong> {doc.email}</p>
+                        <p><strong className="text-slate-800">📞 Phone:</strong> {doc.phone}</p>
+                        <p className="text-[11px] text-slate-500">📅 Availability: {doc.availability || "Daily Schedule"}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end space-x-2 pt-3 border-t border-gray-100">
+                      <button
+                        onClick={() => handleOpenEditDoctor(doc)}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition flex items-center space-x-1 cursor-pointer"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteDoctor(doc.id)}
+                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-lg transition flex items-center space-x-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: PRACTITIONERS (ASSIGNED HEALTHCARE SPECIALISTS) */}
         {currentTab === "practitioners" && (
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-display">Licensed Roster Practitioners</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="border border-gray-150 p-4 rounded-xl flex items-center space-x-3 bg-gray-50/50">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center font-bold text-emerald-700">Dr</div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-850">Dr. Amina Al Maktoum</h4>
-                  <p className="text-[10px] text-gray-400 font-medium">General Practice Specialist</p>
-                  <p className="text-[9px] text-primary-green font-bold uppercase tracking-wider mt-1">On Duty</p>
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <UserCheck className="w-5 h-5 text-primary-blue" />
+                  <h3 className="text-base font-bold text-slate-850 font-display">Practitioners Roster & Active Assignments</h3>
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Active healthcare specialists assigned to clinical home visits, patient appointments, and active consultations.
+                </p>
               </div>
-              <div className="border border-gray-150 p-4 rounded-xl flex items-center space-x-3 bg-gray-50/50">
-                <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center font-bold text-indigo-700">Pt</div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-850">Dr. Robert Chen, PT</h4>
-                  <p className="text-[10px] text-gray-400 font-medium">Sports Physiotherapist</p>
-                  <p className="text-[9px] text-primary-green font-bold uppercase tracking-wider mt-1">On Duty</p>
-                </div>
+
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search practitioner or service..."
+                  value={practitionerSearch}
+                  onChange={(e) => setPractitionerSearch(e.target.value)}
+                  className="pl-8 pr-3 py-2 text-xs border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-blue w-full sm:w-64"
+                />
               </div>
+            </div>
+
+            {/* Practitioners Roster Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {doctorsList
+                .filter(doc => 
+                  !practitionerSearch || 
+                  doc.fullName.toLowerCase().includes(practitionerSearch.toLowerCase()) ||
+                  doc.specialization.toLowerCase().includes(practitionerSearch.toLowerCase())
+                )
+                .map((doc) => {
+                  const assignedOrders = adminOrdersList.filter(
+                    o => o.assignedDoctor === doc.id || o.assignedDoctorName === doc.fullName
+                  );
+
+                  const assignedServicesSet = new Set<string>();
+                  assignedOrders.forEach(o => {
+                    (o.services || o.items || []).forEach((s: any) => {
+                      if (s.serviceName || s.name) assignedServicesSet.add(s.serviceName || s.name);
+                    });
+                  });
+                  const assignedServicesList = Array.from(assignedServicesSet);
+
+                  return (
+                    <div key={doc.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition space-y-4 flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center space-x-3">
+                            <img
+                              src={getImageUrl(doc.profilePhoto)}
+                              alt={doc.fullName}
+                              className="w-14 h-14 rounded-2xl object-cover border-2 border-primary-blue shadow-xs"
+                            />
+                            <div>
+                              <span className="font-mono text-[9px] font-bold text-slate-400">{doc.id}</span>
+                              <h4 className="font-bold text-slate-900 text-sm font-display leading-tight">{doc.fullName}</h4>
+                              <p className="text-xs font-semibold text-primary-blue mt-0.5">{doc.specialization}</p>
+                            </div>
+                          </div>
+
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                            doc.status === "Inactive"
+                              ? "bg-rose-100 text-rose-800 border border-rose-200"
+                              : assignedOrders.length > 0
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : "bg-blue-50 text-blue-800 border border-blue-200"
+                          }`}>
+                            {doc.status === "Inactive" ? "● Inactive" : assignedOrders.length > 0 ? "● On Duty" : "● Available"}
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-gray-100">
+                          <p>
+                            <strong className="text-slate-800">🩺 Assigned Service:</strong>{" "}
+                            <span className="text-slate-900 font-medium">
+                              {assignedServicesList.length > 0 ? assignedServicesList.join(", ") : doc.specialization}
+                            </span>
+                          </p>
+                          <p><strong className="text-slate-800">🎓 Qualification:</strong> {doc.qualification || "MD / MBBS"}</p>
+                          <p><strong className="text-slate-800">⏱️ Experience:</strong> {doc.experience || "5+ Years"}</p>
+                          <p><strong className="text-slate-800">📅 Availability:</strong> {doc.availability || "Daily Schedule"}</p>
+                          
+                          <div className="pt-2 flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-500">Active Patient Appointments:</span>
+                            <span className="px-2.5 py-0.5 text-xs font-mono font-bold bg-slate-900 text-emerald-400 rounded-md">
+                              {assignedOrders.length} Patient{assignedOrders.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 pt-3 border-t border-gray-100">
+                        <button
+                          onClick={() => setSelectedPractitionerForModal(doc)}
+                          className="flex-1 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>View Patient Details</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         )}
@@ -1234,6 +2094,465 @@ export default function AdminDashboard({
             </div>
           </div>
         </div>
+      )}
+      {/* Order Details Modal */}
+      {selectedOrderDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white border border-gray-200 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white">
+              <div className="flex items-center space-x-2">
+                <ShoppingBag className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h4 className="font-bold text-sm font-display">Order Details</h4>
+                  <p className="text-[10px] text-slate-400 font-mono">{selectedOrderDetails.id}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedOrderDetails(null)}
+                className="p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              {/* Patient & Booking Details */}
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-2">
+                <h5 className="font-bold uppercase tracking-wider text-[10px] text-slate-500">Patient & Schedule Info</h5>
+                <div className="grid grid-cols-2 gap-2 text-slate-700">
+                  <div>
+                    <span className="text-gray-400 block text-[10px]">Patient Name</span>
+                    <span className="font-bold">{selectedOrderDetails.patientName || selectedOrderDetails.customerName}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px]">Email</span>
+                    <span className="font-semibold text-slate-800">{selectedOrderDetails.email || selectedOrderDetails.customerEmail}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px]">Phone</span>
+                    <span className="font-medium">{selectedOrderDetails.phone || "N/A"}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px]">Schedule</span>
+                    <span className="font-medium">{selectedOrderDetails.appointmentDate || selectedOrderDetails.date} ({selectedOrderDetails.appointmentTime || "10:00 AM"})</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px]">DOB / Gender</span>
+                    <span className="font-medium">{selectedOrderDetails.dateOfBirth || "N/A"} • {selectedOrderDetails.gender || "N/A"}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block text-[10px]">Relation</span>
+                    <span className="font-medium">{selectedOrderDetails.relation || "Self"}</span>
+                  </div>
+                </div>
+                {selectedOrderDetails.notes && (
+                  <div className="pt-2 border-t border-slate-200/60">
+                    <span className="text-gray-400 block text-[10px]">Notes</span>
+                    <p className="italic text-slate-600 mt-0.5">{selectedOrderDetails.notes}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Services List */}
+              <div className="space-y-2">
+                <h5 className="font-bold uppercase tracking-wider text-[10px] text-slate-500">Ordered Healthcare Services</h5>
+                <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden bg-white">
+                  {(selectedOrderDetails.services || selectedOrderDetails.items || []).map((srv: any, idx: number) => (
+                    <div key={idx} className="p-3 flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-slate-800">{srv.serviceName}</div>
+                        <div className="text-[10px] text-gray-400">Qty: {srv.quantity || 1} • Unit Price: ₹{srv.price}</div>
+                      </div>
+                      <span className="font-bold text-slate-900 text-sm">₹{srv.subtotal || srv.price * (srv.quantity || 1)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Payment & Gateway Information */}
+              <div className="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-200/60 space-y-2">
+                <h5 className="font-bold uppercase tracking-wider text-[10px] text-emerald-800 flex items-center justify-between">
+                  <span>Payment Gateway & Status</span>
+                  <span className="text-emerald-700 font-extrabold">{selectedOrderDetails.paymentMethod}</span>
+                </h5>
+
+                <div className="grid grid-cols-2 gap-2 text-slate-700 text-[11px]">
+                  <div>
+                    <span className="text-gray-500 block text-[10px]">Total Amount</span>
+                    <span className="font-black text-slate-900 text-sm">₹{selectedOrderDetails.totalAmount || selectedOrderDetails.total}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block text-[10px]">Payment Status</span>
+                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                      selectedOrderDetails.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {selectedOrderDetails.paymentStatus}
+                    </span>
+                  </div>
+
+                  {selectedOrderDetails.razorpayOrderId && (
+                    <div className="col-span-2 pt-1 border-t border-emerald-200/60 space-y-1 font-mono text-[10px]">
+                      <div>
+                        <span className="text-gray-500">Razorpay Order ID: </span>
+                        <span className="font-bold text-slate-800">{selectedOrderDetails.razorpayOrderId}</span>
+                      </div>
+                      {selectedOrderDetails.razorpayPaymentId && (
+                        <div>
+                          <span className="text-gray-500">Razorpay Payment ID: </span>
+                          <span className="font-bold text-slate-800">{selectedOrderDetails.razorpayPaymentId}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Order Status Control */}
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <span className="font-bold text-slate-700 text-xs">Current Order Status:</span>
+                <select
+                  value={selectedOrderDetails.orderStatus || "Booked"}
+                  onChange={(e) => handleUpdateOrderStatus(selectedOrderDetails.id, e.target.value)}
+                  className="px-3 py-1.5 text-xs font-bold border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary-blue"
+                >
+                  <option value="Booked">Booked</option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+              <button
+                onClick={() => {
+                  const ordToChat = selectedOrderDetails;
+                  setSelectedOrderDetails(null);
+                  setActiveAdminChatOrder(ordToChat);
+                }}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center space-x-1.5 cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-200" />
+                <span>Open Patient Chat</span>
+              </button>
+              <button
+                onClick={() => setSelectedOrderDetails(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition shadow-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Doctor Add/Edit Modal */}
+      {showDoctorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white border border-gray-200 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white shrink-0">
+              <h4 className="font-bold text-sm font-display flex items-center space-x-2">
+                <Stethoscope className="w-4 h-4 text-emerald-400" />
+                <span>{editingDoctor ? "Edit Doctor Profile & Credentials" : "Register New Specialist Doctor"}</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => setShowDoctorModal(false)}
+                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDoctor} className="p-6 space-y-4 text-xs overflow-y-auto">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Full Doctor Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Dr. Alexander Wright"
+                  value={doctorForm.fullName}
+                  onChange={(e) => setDoctorForm({ ...doctorForm, fullName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Email Address *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="doctor@nivora.org"
+                    value={doctorForm.email}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Phone Number *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="+971 50 123 4567"
+                    value={doctorForm.phone}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Specialization *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Cardiologist & Internal Medicine"
+                  value={doctorForm.specialization}
+                  onChange={(e) => setDoctorForm({ ...doctorForm, specialization: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">DHA License Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. DHA-LIC-88219"
+                    value={doctorForm.licenseNumber}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, licenseNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Consultation Mode</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. In-Home Visit & Clinic"
+                    value={doctorForm.consultationMode}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, consultationMode: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Qualification</label>
+                  <input
+                    type="text"
+                    placeholder="MBBS, MD"
+                    value={doctorForm.qualification}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, qualification: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Experience</label>
+                  <input
+                    type="text"
+                    placeholder="10 Years"
+                    value={doctorForm.experience}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, experience: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Availability Schedule</label>
+                <input
+                  type="text"
+                  placeholder="Mon - Sat (08:00 AM - 06:00 PM)"
+                  value={doctorForm.availability}
+                  onChange={(e) => setDoctorForm({ ...doctorForm, availability: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* Photo Upload & Preview */}
+              <div className="space-y-2 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                <label className="font-bold text-slate-700 block">Doctor Profile Photo</label>
+                <div className="flex items-center space-x-3">
+                  <img
+                    src={getImageUrl(doctorForm.profilePhoto)}
+                    alt="Preview"
+                    className="w-12 h-12 rounded-xl object-cover border border-emerald-400 shrink-0"
+                  />
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleDoctorPhotoUpload}
+                      className="text-[11px] text-gray-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Or paste photo URL..."
+                      value={doctorForm.profilePhoto}
+                      onChange={(e) => setDoctorForm({ ...doctorForm, profilePhoto: e.target.value })}
+                      className="w-full px-2.5 py-1 text-[11px] border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Status</label>
+                <select
+                  value={doctorForm.status}
+                  onChange={(e) => setDoctorForm({ ...doctorForm, status: e.target.value as "Active" | "Inactive" })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowDoctorModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer shadow-md"
+                >
+                  Save Doctor
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Practitioner Assigned Patients Detail Modal */}
+      {selectedPractitionerForModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white border border-gray-200 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white shrink-0">
+              <div className="flex items-center space-x-3">
+                <img
+                  src={getImageUrl(selectedPractitionerForModal.profilePhoto)}
+                  alt={selectedPractitionerForModal.fullName}
+                  className="w-10 h-10 rounded-xl object-cover border border-emerald-400"
+                />
+                <div>
+                  <h4 className="font-bold text-sm font-display leading-tight">{selectedPractitionerForModal.fullName}</h4>
+                  <p className="text-xs text-emerald-300">{selectedPractitionerForModal.specialization} • {selectedPractitionerForModal.qualification}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPractitionerForModal(null)}
+                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs">
+              <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex items-center justify-between text-emerald-900">
+                <div>
+                  <span className="font-bold">Contact Email:</span> {selectedPractitionerForModal.email} | <span className="font-bold">Phone:</span> {selectedPractitionerForModal.phone}
+                </div>
+                <span className="px-2 py-0.5 bg-emerald-700 text-white font-bold rounded text-[10px]">
+                  {selectedPractitionerForModal.licenseNumber || "DHA Certified"}
+                </span>
+              </div>
+
+              <h5 className="font-bold text-slate-850 uppercase tracking-wider text-[11px]">Assigned Active Patient Bookings</h5>
+
+              {(() => {
+                const docOrders = adminOrdersList.filter(
+                  o => o.assignedDoctor === selectedPractitionerForModal.id || o.assignedDoctorName === selectedPractitionerForModal.fullName
+                );
+
+                if (docOrders.length === 0) {
+                  return (
+                    <div className="p-8 text-center text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                      No active patient appointments currently assigned to this practitioner.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {docOrders.map((ord) => {
+                      const serviceNames = (ord.services || ord.items || []).map(s => s.serviceName || s.name).join(", ") || "General Consultation";
+
+                      return (
+                        <div key={ord.id} className="p-4 border border-gray-200 rounded-xl bg-gray-50/50 hover:bg-white transition space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="font-mono text-[10px] font-bold text-gray-400">{ord.id}</span>
+                              <h6 className="font-bold text-slate-900 text-xs">{ord.patientName || ord.customerName}</h6>
+                              <p className="text-[11px] text-gray-500">{ord.email || ord.customerEmail} • {ord.phone || "No Phone"}</p>
+                            </div>
+                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800">
+                              {ord.orderStatus || ord.status || "Confirmed"}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-700 pt-1 border-t border-gray-150">
+                            <div><strong>Service:</strong> {serviceNames}</div>
+                            <div><strong>Schedule:</strong> {ord.appointmentDate || ord.date} ({ord.appointmentTime || "10:00 AM"})</div>
+                            <div><strong>Payment:</strong> {ord.paymentMethod} ({ord.paymentStatus})</div>
+                            <div><strong>Amount:</strong> ₹{ord.totalAmount || ord.total}</div>
+                          </div>
+
+                          <div className="pt-2 flex justify-end">
+                            <button
+                              onClick={() => {
+                                setSelectedPractitionerForModal(null);
+                                setActiveAdminChatOrder(ord);
+                              }}
+                              className="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-[10px] flex items-center space-x-1 cursor-pointer"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              <span>Live Chat with Patient</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedPractitionerForModal(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold cursor-pointer text-xs"
+              >
+                Close Window
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin / Doctor Patient Chat Modal */}
+      {activeAdminChatOrder && (
+        <DoctorPatientChatModal
+          isOpen={!!activeAdminChatOrder}
+          onClose={() => setActiveAdminChatOrder(null)}
+          appointment={activeAdminChatOrder}
+          currentUserRole="admin"
+          currentUserName="Nivora Medical Admin / DHA Specialist"
+        />
       )}
     </div>
   );

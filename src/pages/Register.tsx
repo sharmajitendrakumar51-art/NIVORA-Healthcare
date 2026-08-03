@@ -28,15 +28,31 @@ export default function Register({ onRegisterSuccess }: RegisterProps) {
         body: JSON.stringify({ firstName, lastName, email, phone, password })
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      let data: any = {};
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        console.warn("Non-JSON response from register endpoint:", text);
+      }
+
       if (res.ok && data.success) {
-        onRegisterSuccess(data.user);
+        if (data.token) {
+          localStorage.setItem("nivora_token", data.token);
+          localStorage.setItem("token", data.token);
+        }
+        if (data.user) {
+          localStorage.setItem("nivora_user", JSON.stringify(data.user));
+        }
+        onRegisterSuccess({ ...data.user, token: data.token });
         navigate("/");
       } else {
-        setError(data.message || "Registration failed.");
+        setError(data.message || "Registration failed. Please check your details and try again.");
       }
-    } catch (err) {
-      setError("Unable to connect to the healthcare server.");
+    } catch (err: any) {
+      console.error("Registration error:", err);
+      setError(err?.message || "Unable to connect to the healthcare server. Please verify your internet connection.");
     } finally {
       setLoading(false);
     }

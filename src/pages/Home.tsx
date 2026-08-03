@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   Heart, 
   Stethoscope, 
   Activity, 
+  Dumbbell,
   Dribbble, 
   Settings, 
   Sparkles, 
@@ -12,11 +13,20 @@ import {
   FileSpreadsheet,
   Tablet,
   ChevronRight,
+  ChevronLeft,
   MapPin,
   Flame,
   ArrowUpRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay, EffectFade, Navigation, Pagination, Keyboard } from "swiper/modules";
+
+import "swiper/css";
+import "swiper/css/effect-fade";
+import "swiper/css/navigation";
+import "swiper/css/pagination";
+
 import { Service, Category } from "../types";
 import { Language, getTranslation, getImageUrl } from "../utils/translations";
 
@@ -28,10 +38,47 @@ interface HomeProps {
   language?: Language;
 }
 
-const heroImages = [
-  "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=1600&q=80", // Expert Doctor Home Visit
-  "https://images.unsplash.com/photo-1579684389782-64d84b5e901a?auto=format&fit=crop&w=1600&q=80", // At-Home Diagnostics and Labs
-  "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1600&q=80", // At-Home Physiotherapy / Rehabilitation
+const heroSlides = [
+  {
+    image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=2000&q=80",
+    title: "Licensed Doctor Home Visit & Consultation",
+    category: "Doctor Home Visit"
+  },
+  {
+    image: "https://images.unsplash.com/photo-1579684389782-64d84b5e901a?auto=format&fit=crop&w=2000&q=80",
+    title: "At-Home Diagnostics & Vital Biomarker Tests",
+    category: "Diagnostics & Labs"
+  },
+  {
+    image: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=2000&q=80",
+    title: "Personalized At-Home Physiotherapy & Pain Release",
+    category: "Physiotherapy at Home"
+  },
+  {
+    image: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=2000&q=80",
+    title: "DHA Certified Skilled Nursing Care",
+    category: "Nursing Care at Home"
+  },
+  {
+    image: "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?auto=format&fit=crop&w=2000&q=80",
+    title: "Compassionate Senior & Elderly Care Services",
+    category: "Elderly Care"
+  },
+  {
+    image: "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=2000&q=80",
+    title: "Sports Injury Rehabilitation & Specialized Recovery",
+    category: "Sports Injuries"
+  },
+  {
+    image: "https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?auto=format&fit=crop&w=2000&q=80",
+    title: "Happy Family Receiving Home Healthcare Services",
+    category: "Family Home Healthcare"
+  },
+  {
+    image: "https://images.unsplash.com/photo-1631815588090-d4bfec5b1cdb?auto=format&fit=crop&w=2000&q=80",
+    title: "Advanced Medical Equipment & Certified Healthcare Professionals",
+    category: "Modern Medical Equipment"
+  }
 ];
 
 export default function Home({ 
@@ -42,15 +89,6 @@ export default function Home({
   language = "en"
 }: HomeProps) {
   const navigate = useNavigate();
-  const [currentBgIndex, setCurrentBgIndex] = useState(0);
-
-  // Auto-play interval for background image slideshow
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBgIndex((prev) => (prev + 1) % heroImages.length);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Categories mapping to custom beautiful icons
   const getCategoryIcon = (name: string) => {
@@ -60,6 +98,13 @@ export default function Home({
       case "nurse care": return <Heart className="w-5 h-5 text-emerald-600" />;
       case "elder care": return <Heart className="w-5 h-5 text-rose-600" />;
       case "dental care": return <Stethoscope className="w-5 h-5 text-teal-600" />;
+      case "cardiology": return <Heart className="w-5 h-5 text-red-600" />;
+      case "mental health": 
+      case "mental wellness": return <Sparkles className="w-5 h-5 text-purple-600" />;
+      case "exercise & fitness":
+      case "exercise & gym":
+      case "fitness & wellness": return <Dumbbell className="w-5 h-5 text-indigo-600" />;
+      case "sports injury": return <Flame className="w-5 h-5 text-orange-600" />;
       default: return <Sparkles className="w-5 h-5 text-primary-green" />;
     }
   };
@@ -72,9 +117,47 @@ export default function Home({
       )
     : services;
 
+  const getServiceCategory = (s: Service) => {
+    if (s.categoryId) {
+      const matchById = categories.find(c => c.id === s.categoryId);
+      if (matchById) return matchById;
+    }
+    if (s.categoryName) {
+      const matchByName = categories.find(c => c.name.trim().toLowerCase() === s.categoryName.trim().toLowerCase());
+      if (matchByName) return matchByName;
+    }
+    return null;
+  };
+
+  const PREFERRED_HOMEPAGE_ORDER = [
+    "cardiology",
+    "physiotherapy",
+    "exercise & fitness",
+    "exercise & gym",
+    "fitness & wellness",
+    "nurse care",
+    "elder care",
+    "mental health",
+    "mental wellness",
+    "diagnostics"
+  ];
+
+  const sortedCategoriesForHomepage = [...categories].sort((a, b) => {
+    const nameA = a.name.trim().toLowerCase();
+    const nameB = b.name.trim().toLowerCase();
+    let idxA = PREFERRED_HOMEPAGE_ORDER.indexOf(nameA);
+    let idxB = PREFERRED_HOMEPAGE_ORDER.indexOf(nameB);
+    if (idxA === -1) idxA = 999;
+    if (idxB === -1) idxB = 999;
+    return idxA - idxB;
+  });
+
   // Render a section for each category
   const renderCategorySection = (category: Category) => {
-    const categoryServices = filteredServices.filter(s => s.categoryId === category.id).slice(0, 4);
+    const categoryServices = filteredServices.filter(s => {
+      const resolvedCat = getServiceCategory(s);
+      return resolvedCat ? resolvedCat.id === category.id : s.categoryId === category.id;
+    }).slice(0, 4);
     if (categoryServices.length === 0) return null;
 
     return (
@@ -114,7 +197,9 @@ export default function Home({
 
               <div className="p-4 flex-1 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">{srv.categoryName}</h3>
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                    {getServiceCategory(srv)?.name || srv.categoryName}
+                  </h3>
                   <Link to={`/services/${srv.id}`} className="text-sm font-extrabold text-slate-850 hover:text-primary-blue transition line-clamp-1 mt-1 block">
                     {srv.name}
                   </Link>
@@ -155,37 +240,74 @@ export default function Home({
 
   return (
     <div className="w-full pb-16 space-y-12">
-      {/* 1. HERO BANNER */}
-      <section className="relative bg-slate-950 text-white py-16 md:py-24 overflow-hidden">
-        {/* Background Image Slideshow with smooth cross-fading */}
+      {/* 1. HERO BANNER WITH PREMIUM SWIPER CAROUSEL */}
+      <section className="relative bg-slate-950 text-white py-8 sm:py-10 md:py-12 lg:py-14 min-h-[460px] sm:min-h-[500px] md:min-h-[540px] lg:min-h-[580px] flex items-center overflow-hidden group">
+        {/* Background Swiper Carousel Slider */}
         <div className="absolute inset-0 z-0">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentBgIndex}
-              initial={{ opacity: 0, scale: 1.05 }}
-              animate={{ opacity: 0.28, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 1.0, ease: "easeInOut" }}
-              className="absolute inset-0 w-full h-full"
-            >
-              <img
-                src={heroImages[currentBgIndex]}
-                alt="Nivora Healthcare Experience"
-                className="w-full h-full object-cover"
-              />
-            </motion.div>
-          </AnimatePresence>
-          {/* Deep professional overlays to guarantee text legibility & elegant look */}
-          <div className="absolute inset-0 bg-slate-950/80"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-slate-950/35"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
+          <Swiper
+            modules={[Autoplay, EffectFade, Navigation, Pagination, Keyboard]}
+            effect="fade"
+            fadeEffect={{ crossFade: true }}
+            speed={1200}
+            autoplay={{
+              delay: 5000,
+              disableOnInteraction: false,
+              pauseOnMouseEnter: true
+            }}
+            loop={true}
+            keyboard={{ enabled: true }}
+            navigation={{
+              prevEl: ".hero-swiper-prev",
+              nextEl: ".hero-swiper-next"
+            }}
+            pagination={{
+              el: ".hero-swiper-pagination",
+              clickable: true
+            }}
+            className="w-full h-full hero-swiper"
+          >
+            {heroSlides.map((slide, index) => (
+              <SwiperSlide key={index} className="relative w-full h-full overflow-hidden">
+                <img
+                  src={slide.image}
+                  alt=""
+                  loading={index === 0 ? "eager" : "lazy"}
+                  onError={(e) => {
+                    // Fallback to first high-res doctor visit photo if any photo fails to load
+                    (e.currentTarget as HTMLImageElement).src = heroSlides[0].image;
+                  }}
+                  className="w-full h-full object-cover object-center"
+                />
+                {/* Subtle dark gradient overlay to ensure text readability while keeping images bright & visible */}
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/70 via-slate-950/35 to-slate-950/15 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/20 pointer-events-none" />
+              </SwiperSlide>
+            ))}
+          </Swiper>
         </div>
 
+        {/* Swiper Custom Navigation Buttons */}
+        <button 
+          className="hero-swiper-prev absolute left-3 md:left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 rounded-full bg-slate-900/60 hover:bg-emerald-800/90 text-white border border-white/20 hover:border-emerald-400 flex items-center justify-center backdrop-blur-md shadow-xl transition-all duration-200 cursor-pointer opacity-80 hover:opacity-100 hover:scale-105 active:scale-95"
+          aria-label="Previous Slide"
+        >
+          <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
+        </button>
+        <button 
+          className="hero-swiper-next absolute right-3 md:right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 rounded-full bg-slate-900/60 hover:bg-emerald-800/90 text-white border border-white/20 hover:border-emerald-400 flex items-center justify-center backdrop-blur-md shadow-xl transition-all duration-200 cursor-pointer opacity-80 hover:opacity-100 hover:scale-105 active:scale-95"
+          aria-label="Next Slide"
+        >
+          <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+        </button>
+
+        {/* Swiper Custom Pagination Dots */}
+        <div className="hero-swiper-pagination absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center space-x-1" />
+
         {/* Abstract design nodes imitating Elara branding */}
-        <div className="absolute top-1/4 right-10 w-96 h-96 bg-primary-green/15 rounded-full blur-3xl z-1"></div>
-        <div className="absolute bottom-10 left-10 w-80 h-80 bg-primary-blue/15 rounded-full blur-2xl z-1"></div>
+        <div className="absolute top-1/4 right-10 w-96 h-96 bg-primary-green/15 rounded-full blur-3xl z-1 pointer-events-none"></div>
+        <div className="absolute bottom-10 left-10 w-80 h-80 bg-primary-blue/15 rounded-full blur-2xl z-1 pointer-events-none"></div>
         
-        <div className="max-w-7xl mx-auto px-4 md:px-8 relative z-10 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-center w-full my-auto">
           <div className="space-y-6">
             <div className="inline-flex items-center space-x-2 bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-full text-xs text-amber-300 font-semibold uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5" />
@@ -390,8 +512,20 @@ export default function Home({
               }}
               className="bg-white p-4 rounded-xl border border-gray-150 hover:border-primary-green hover:shadow-lg transition-all duration-150 cursor-pointer flex flex-col items-center text-center group"
             >
-              <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center mb-3 group-hover:bg-primary-green/5 transition">
-                {getCategoryIcon(cat.name)}
+              <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center mb-3 group-hover:bg-primary-green/5 transition overflow-hidden">
+                {cat.image && (cat.image.startsWith("http") || cat.image.startsWith("/uploads") || cat.image.startsWith("data:")) ? (
+                  <img 
+                    src={getImageUrl(cat.image)} 
+                    alt={cat.name} 
+                    className="w-full h-full object-cover rounded-full"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).onerror = null;
+                      (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1504813184591-015556c5c528?auto=format&fit=crop&w=300&q=80";
+                    }}
+                  />
+                ) : (
+                  getCategoryIcon(cat.name)
+                )}
               </div>
               <h3 className="text-xs font-bold text-slate-800 group-hover:text-primary-green transition">
                 {cat.name}
@@ -399,24 +533,10 @@ export default function Home({
               <p className="text-[10px] text-gray-400 mt-1 line-clamp-1">At home slots</p>
             </div>
           ))}
-          
-          {/* Missing dynamic categories from screenshot */}
-          <div 
-            onClick={() => navigate("/physiotherapy")}
-            className="bg-white p-4 rounded-xl border border-gray-150 hover:border-primary-green hover:shadow-lg transition-all duration-150 cursor-pointer flex flex-col items-center text-center group"
-          >
-            <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center mb-3 group-hover:bg-primary-green/5 transition">
-              <Activity className="w-5 h-5 text-indigo-600" />
-            </div>
-            <h3 className="text-xs font-bold text-slate-800 group-hover:text-primary-green transition">
-              Exercise & Gym
-            </h3>
-            <p className="text-[10px] text-gray-400 mt-1 line-clamp-1">Personal trainers</p>
-          </div>
         </div>
       </section>
 
-      {categories.map(category => renderCategorySection(category))}
+      {sortedCategoriesForHomepage.map(category => renderCategorySection(category))}
 
       {/* 5. HOW IT WORKS SECTION (Simulated Screen) */}
       <section className="bg-gray-100 py-16">

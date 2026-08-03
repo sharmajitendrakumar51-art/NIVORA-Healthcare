@@ -13,7 +13,8 @@ import {
   MessageSquare, 
   TrendingUp,
   LogOut,
-  Sliders
+  Sliders,
+  ShoppingBag
 } from "lucide-react";
 
 interface AdminSidebarProps {
@@ -26,11 +27,14 @@ export default function AdminSidebar({ currentTab, onTabChange, onLogout }: Admi
   const menuItems = [
     { id: "categories", label: "Category", icon: FolderHeart },
     { id: "services", label: "Services", icon: Stethoscope },
+    { id: "doctor-assignment", label: "Doctor Assignment", icon: UserRoundCheck },
+    { id: "doctor-management", label: "Doctor Directory", icon: Stethoscope },
     { id: "admin-role", label: "Admin Role", icon: ShieldCheck },
     { id: "service-management", label: "Service Management", icon: Wrench },
     { id: "service-allocation", label: "Service Allocation", icon: Network },
     { id: "users", label: "Registration Users", icon: Users },
     { id: "bookings", label: "Bookings", icon: CalendarCheck },
+    { id: "orders", label: "Orders Management", icon: ShoppingBag },
     { id: "collected-cash", label: "Collected Cash", icon: Coins },
     { id: "providers", label: "Providers", icon: Building2 },
     { id: "practitioners", label: "Practitioners", icon: UserRoundCheck },

@@ -162,11 +162,15 @@ export function getImageUrl(imagePath?: string): string {
     return imagePath;
   }
   
+  // Normalize public/uploads or /public/uploads or uploads to /uploads
+  let cleaned = imagePath.replace(/^\/?public\/uploads\//, "/uploads/").replace(/^\/?public\//, "/");
+  if (!cleaned.startsWith("/")) {
+    cleaned = `/${cleaned}`;
+  }
+
   // Resolve base URL for multi-origin deployments
   const apiBaseUrl = (import.meta as any).env?.VITE_API_URL || "";
   
-  // Guarantee clean path resolution
-  const cleanPath = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
-  return `${apiBaseUrl}${cleanPath}`;
+  return `${apiBaseUrl}${cleaned}`;
 }
 

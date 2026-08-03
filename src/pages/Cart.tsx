@@ -61,6 +61,10 @@ export default function Cart({ cart, onUpdateQty, onRemoveItem, onProceedToCheck
                       src={getImageUrl(item.service.image)} 
                       alt={item.service.name} 
                       className="w-16 h-16 rounded-lg object-cover border border-gray-150 shrink-0 bg-gray-50"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).onerror = null;
+                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1504813184591-015556c5c528?auto=format&fit=crop&w=500&q=80";
+                      }}
                     />
                     <div>
                       <span className="text-[9px] font-bold text-primary-green uppercase tracking-widest bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-100">

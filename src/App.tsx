@@ -10,6 +10,10 @@ import Footer from "./components/Footer";
 import BookingModal from "./components/BookingModal";
 import AdminSidebar from "./components/AdminSidebar";
 import AdminHeader from "./components/AdminHeader";
+import AdminLayout from "./components/AdminLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { AuthProvider } from "./context/AuthContext";
+import AIChatbot from "./components/AIChatbot";
 
 // Pages
 import Home from "./pages/Home";
@@ -19,8 +23,12 @@ import Cart from "./pages/Cart";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
+import OrderSuccess from "./pages/OrderSuccess";
+import MyAppointments from "./pages/MyAppointments";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import DoctorDashboard from "./pages/DoctorDashboard";
+import { sendAppointmentCancellationEmail } from "./services/emailService";
 
 function NavigationWrapper({
   cart,
@@ -95,48 +103,34 @@ function NavigationWrapper({
   const isAdminRoute = location.pathname.startsWith("/admin");
 
   if (isAdminRoute) {
-    if (location.pathname === "/admin/login" || !adminUser) {
+    if (location.pathname === "/admin/login") {
       return (
         <Routes>
-          <Route path="/admin/login" element={<Navigate to="/admin" />} />
-          <Route path="*" element={<Navigate to="/admin/login" />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="*" element={<Navigate to="/admin/login" replace />} />
         </Routes>
       );
     }
 
     return (
-      <div className="flex bg-[#F8F9FB] min-h-screen font-sans">
-        <AdminSidebar 
-          currentTab={adminTab} 
-          onTabChange={setAdminTab} 
-          onLogout={onAdminLogout} 
+      <ProtectedRoute>
+        <AdminLayout
+          categories={categories}
+          services={services}
+          bookings={bookings}
+          orders={orders}
+          collectedCash={collectedCash}
+          onAddCategory={onAddCategory}
+          onAddService={onAddService}
+          onUpdateBookingStatus={onUpdateBookingStatus}
+          onUpdateService={onUpdateService}
+          onUpdateCategory={onUpdateCategory}
+          onDeleteCategory={onDeleteCategory}
+          onDeleteService={onDeleteService}
+          users={users}
+          onDeleteUser={onDeleteUser}
         />
-        <div className="flex-1 flex flex-col min-w-0">
-          <AdminHeader 
-            title={adminTab} 
-            adminUser={adminUser} 
-          />
-          <main className="flex-grow">
-            <AdminDashboard
-              categories={categories}
-              services={services}
-              bookings={bookings}
-              orders={orders}
-              collectedCash={collectedCash}
-              onAddCategory={onAddCategory}
-              onAddService={onAddService}
-              onUpdateBookingStatus={onUpdateBookingStatus}
-              onUpdateService={onUpdateService}
-              onUpdateCategory={onUpdateCategory}
-              onDeleteCategory={onDeleteCategory}
-              onDeleteService={onDeleteService}
-              users={users}
-              onDeleteUser={onDeleteUser}
-              currentTab={adminTab}
-            />
-          </main>
-        </div>
-      </div>
+      </ProtectedRoute>
     );
   }
 
@@ -266,12 +260,20 @@ function NavigationWrapper({
               <Route path="/login" element={<Login onLoginSuccess={onLoginSuccess} />} />
               <Route path="/register" element={<Register onRegisterSuccess={onLoginSuccess} />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/order-success" element={<OrderSuccess />} />
+              <Route path="/orders" element={<MyAppointments orders={orders} user={user} />} />
+              <Route path="/my-appointments" element={<MyAppointments orders={orders} user={user} />} />
+              <Route path="/doctor/dashboard" element={<DoctorDashboard doctorUser={user} onLogout={onLogout} />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </motion.div>
         </AnimatePresence>
       </main>
       <Footer />
+      <AIChatbot 
+        onBookImmediate={onBookImmediate} 
+        services={services} 
+      />
     </div>
   );
 }
@@ -293,15 +295,27 @@ export default function App() {
       return [];
     }
   });
-  const [user, setUser] = useState<any | null>({
-    id: "USR-002",
-    firstName: "Jane",
-    lastName: "Doe",
-    email: "jane.doe@example.com",
-    phone: "+971 50 123 4567"
+  const [user, setUser] = useState<any | null>(() => {
+    const saved = localStorage.getItem("nivora_user");
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {
+      id: "USR-002",
+      firstName: "Jane",
+      lastName: "Doe",
+      email: "jane.doe@example.com",
+      phone: "+971 50 123 4567"
+    };
   });
 
-  const [adminUser, setAdminUser] = useState<any | null>(null);
+  const [adminUser, setAdminUser] = useState<any | null>(() => {
+    const saved = localStorage.getItem("nivora_admin_user");
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return null;
+  });
   const [adminTab, setAdminTab] = useState("categories");
 
   // Language & City States
@@ -330,21 +344,26 @@ export default function App() {
   // Load all primary data from backend API
   const loadData = async () => {
     try {
+      const token = localStorage.getItem("nivora_token") || localStorage.getItem("token");
+      const headers: Record<string, string> = token ? { "Authorization": `Bearer ${token}` } : {};
+
+      const orderEndpoint = adminUser ? "/api/admin/orders" : "/api/orders/my";
+
       const [catRes, srvRes, bookRes, ordRes, cashRes, userRes] = await Promise.all([
         fetch("/api/categories").then(r => r.json()),
         fetch("/api/services").then(r => r.json()),
-        fetch("/api/bookings").then(r => r.json()),
-        fetch("/api/orders").then(r => r.json()),
+        fetch("/api/bookings", { headers }).then(r => r.json()),
+        fetch(orderEndpoint, { headers }).then(r => r.json().catch(() => [])),
         fetch("/api/collected-cash").then(r => r.json()),
         fetch("/api/users").then(r => r.json())
       ]);
 
-      setCategories(catRes);
-      setServices(srvRes);
-      setBookings(bookRes);
-      setOrders(ordRes);
-      setCollectedCash(cashRes);
-      setUsers(userRes);
+      setCategories(Array.isArray(catRes) ? catRes : []);
+      setServices(Array.isArray(srvRes) ? srvRes : []);
+      setBookings(Array.isArray(bookRes) ? bookRes : []);
+      setOrders(Array.isArray(ordRes) ? ordRes : []);
+      setCollectedCash(Array.isArray(cashRes) ? cashRes : []);
+      setUsers(Array.isArray(userRes) ? userRes : []);
     } catch (e) {
       console.error("Error loading full-stack healthcare parameters", e);
     }
@@ -352,7 +371,7 @@ export default function App() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [adminUser]);
 
   useEffect(() => {
     try {
@@ -386,6 +405,7 @@ export default function App() {
   };
 
   const handleUpdateBookingStatus = async (id: string, status: 'Confirmed' | 'Completed' | 'Cancelled') => {
+    const targetBooking = bookings.find(b => b.id === id);
     const res = await fetch(`/api/bookings/${encodeURIComponent(id)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -394,6 +414,32 @@ export default function App() {
     const updated = await res.json();
     setBookings(prev => prev.map(b => b.id === id ? updated : b));
     loadData(); // Reload stats/cash collected
+
+    if (status === "Cancelled") {
+      const b = updated || targetBooking;
+      if (b) {
+        const userName = b.patientDetails
+          ? `${b.patientDetails.firstName || ''} ${b.patientDetails.lastName || ''}`.trim()
+          : (b.patientName || "Patient");
+        const userEmail = b.patientDetails?.email || b.email || b.customerEmail || "";
+        const doctorName = b.serviceName || b.doctorName || "Nivora Healthcare Specialist";
+        const appointmentDate = b.date || b.appointmentDate || "Scheduled Date";
+        const appointmentTime = b.time || b.appointmentTime || "Scheduled Time";
+
+        if (userEmail) {
+          sendAppointmentCancellationEmail({
+            userName,
+            userEmail,
+            doctorName,
+            appointmentDate,
+            appointmentTime
+          }).catch((emailErr) => {
+            console.error("EmailJS sending error (booking cancellation):", emailErr);
+          });
+        }
+      }
+    }
+
     return updated;
   };
 
@@ -511,6 +557,9 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem("nivora_token");
+    localStorage.removeItem("token");
+    localStorage.removeItem("nivora_user");
     setUser(null);
   };
 
@@ -519,74 +568,85 @@ export default function App() {
   };
 
   const handleAdminLogout = () => {
+    localStorage.removeItem("nivora_token");
+    localStorage.removeItem("token");
+    localStorage.removeItem("nivora_admin_user");
     setAdminUser(null);
   };
 
   const handleAdminLoginSuccess = (adminData: any) => {
     setAdminUser(adminData);
+    if (adminData?.token) {
+      localStorage.setItem("nivora_token", adminData.token);
+      localStorage.setItem("token", adminData.token);
+    }
+    localStorage.setItem("nivora_admin_user", JSON.stringify(adminData));
+    loadData();
   };
 
   return (
-    <Router>
-      <Routes>
-        {/* Admin security gate */}
-        <Route 
-          path="/admin/login" 
-          element={<AdminLogin onAdminLoginSuccess={handleAdminLoginSuccess} />} 
-        />
-        
-        {/* All other routes */}
-        <Route 
-          path="*" 
-          element={
-            <NavigationWrapper
-              cart={cart}
-              user={user}
-              onLogout={handleLogout}
-              onLoginSuccess={handleLoginSuccess}
-              onSearch={setSearchQuery}
-              searchQuery={searchQuery}
-              categories={categories}
-              services={services}
-              bookings={bookings}
-              orders={orders}
-              collectedCash={collectedCash}
-              onAddToCart={handleAddToCart}
-              onUpdateQty={handleUpdateQty}
-              onRemoveItem={handleRemoveItem}
-              onProceedToCheckout={handleProceedToCheckout}
-              onBookImmediate={handleBookImmediate}
-              adminUser={adminUser}
-              onAdminLogout={handleAdminLogout}
-              onAddCategory={handleAddCategory}
-              onAddService={handleAddService}
-              onUpdateBookingStatus={handleUpdateBookingStatus}
-              onUpdateService={handleUpdateService}
-              onUpdateCategory={handleUpdateCategory}
-              onDeleteCategory={handleDeleteCategory}
-              onDeleteService={handleDeleteService}
-              users={users}
-              onDeleteUser={handleDeleteUser}
-              adminTab={adminTab}
-              setAdminTab={setAdminTab}
-              language={language}
-              setLanguage={setLanguage}
-              city={city}
-              setCity={setCity}
-            />
-          } 
-        />
-      </Routes>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Admin security gate */}
+          <Route 
+            path="/admin/login" 
+            element={<AdminLogin onAdminLoginSuccess={handleAdminLoginSuccess} />} 
+          />
+          
+          {/* All other routes */}
+          <Route 
+            path="*" 
+            element={
+              <NavigationWrapper
+                cart={cart}
+                user={user}
+                onLogout={handleLogout}
+                onLoginSuccess={handleLoginSuccess}
+                onSearch={setSearchQuery}
+                searchQuery={searchQuery}
+                categories={categories}
+                services={services}
+                bookings={bookings}
+                orders={orders}
+                collectedCash={collectedCash}
+                onAddToCart={handleAddToCart}
+                onUpdateQty={handleUpdateQty}
+                onRemoveItem={handleRemoveItem}
+                onProceedToCheckout={handleProceedToCheckout}
+                onBookImmediate={handleBookImmediate}
+                adminUser={adminUser}
+                onAdminLogout={handleAdminLogout}
+                onAddCategory={handleAddCategory}
+                onAddService={handleAddService}
+                onUpdateBookingStatus={handleUpdateBookingStatus}
+                onUpdateService={handleUpdateService}
+                onUpdateCategory={handleUpdateCategory}
+                onDeleteCategory={handleDeleteCategory}
+                onDeleteService={handleDeleteService}
+                users={users}
+                onDeleteUser={handleDeleteUser}
+                adminTab={adminTab}
+                setAdminTab={setAdminTab}
+                language={language}
+                setLanguage={setLanguage}
+                city={city}
+                setCity={setCity}
+              />
+            } 
+          />
+        </Routes>
 
-      {/* Main Global Appointment Modal Popup */}
-      {activeBookingService && (
-        <BookingModal
-          isOpen={!!activeBookingService}
-          onClose={() => setActiveBookingService(null)}
-          service={activeBookingService}
-          onConfirm={handleConfirmBooking}
-        />
-      )}
-    </Router>
+        {/* Main Global Appointment Modal Popup */}
+        {activeBookingService && (
+          <BookingModal
+            isOpen={!!activeBookingService}
+            onClose={() => setActiveBookingService(null)}
+            service={activeBookingService}
+            onConfirm={handleConfirmBooking}
+          />
+        )}
+      </Router>
+    </AuthProvider>
   );
 }

@@ -57,7 +57,9 @@ export default function DoctorVisit({ categories, services, onBookImmediate, def
   };
 
   const filteredServices = services.filter((srv) => {
-    const matchesCat = selectedCategory === "all" || srv.categoryId === selectedCategory;
+    const resolvedCat = categories.find(c => c.id === srv.categoryId) ||
+                        categories.find(c => c.name.trim().toLowerCase() === srv.categoryName?.trim().toLowerCase());
+    const matchesCat = selectedCategory === "all" || (resolvedCat ? resolvedCat.id === selectedCategory : srv.categoryId === selectedCategory);
     const matchesAge = selectedAge === "all" || srv.ageGroup === selectedAge;
     const matchesGender = selectedGender === "all" || srv.genderFocus === selectedGender || srv.genderFocus === "All Genders";
     const matchesPrice = srv.sellingPrice <= priceRange;
@@ -249,6 +251,10 @@ export default function DoctorVisit({ categories, services, onBookImmediate, def
                           src={getImageUrl(srv.image)} 
                           alt={srv.name} 
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).onerror = null;
+                            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1504813184591-015556c5c528?auto=format&fit=crop&w=500&q=80";
+                          }}
                         />
                         {discountPct > 0 && (
                           <span className="absolute top-2.5 left-2.5 bg-rose-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -264,7 +270,7 @@ export default function DoctorVisit({ categories, services, onBookImmediate, def
                       <div className="p-4 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-bold text-primary-green uppercase tracking-wider bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
-                            {srv.categoryName}
+                            {categories.find(c => c.id === srv.categoryId)?.name || srv.categoryName}
                           </span>
                           <span className="text-[10px] text-gray-400 font-bold">
                             {srv.genderFocus}

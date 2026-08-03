@@ -1,0 +1,612 @@
+{
+  "users": [],
+  "doctors": [
+    {
+      "id": "DOC-101",
+      "fullName": "Dr. Alexander Wright",
+      "email": "alexander.wright@nivora.org",
+      "phone": "+971 50 888 1234",
+      "specialization": "General Practitioner / Family Medicine",
+      "qualification": "MBBS, MD (General Medicine)",
+      "experience": "12 Years",
+      "availability": "Mon - Sat (08:00 AM - 06:00 PM)",
+      "status": "Active",
+      "profilePhoto": "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=80",
+      "createdAt": "2026-07-27T10:00:00.000Z"
+    },
+    {
+      "id": "DOC-102",
+      "fullName": "Dr. Maya Patel",
+      "email": "maya.patel@nivora.org",
+      "phone": "+971 50 777 5678",
+      "specialization": "Cardiologist & Internal Medicine",
+      "qualification": "MBBS, FACC (Cardiology)",
+      "experience": "10 Years",
+      "availability": "Mon - Fri (09:00 AM - 05:00 PM)",
+      "status": "Active",
+      "profilePhoto": "https://images.unsplash.com/photo-1594824813566-78a0d421e427?auto=format&fit=crop&w=300&q=80",
+      "createdAt": "2026-07-27T10:00:00.000Z"
+    },
+    {
+      "id": "DOC-103",
+      "fullName": "Dr. Sameer Khan",
+      "email": "sameer.khan@nivora.org",
+      "phone": "+971 50 666 9012",
+      "specialization": "Senior Physiotherapist & Rehab Specialist",
+      "qualification": "BPT, MPT (Musculoskeletal)",
+      "experience": "8 Years",
+      "availability": "Daily (08:00 AM - 08:00 PM)",
+      "status": "Active",
+      "profilePhoto": "https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=300&q=80",
+      "createdAt": "2026-07-27T10:00:00.000Z"
+    }
+  ],
+  "categories": [
+    {
+      "id": "CAT-0021",
+      "name": "Dental Care",
+      "image": "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?auto=format&fit=crop&w=300&q=80",
+      "description": "Comprehensive oral health services including cleanings, fillings, checkups, and hygiene instructions.",
+      "createdAt": "2026-07-27T17:43:14.089Z"
+    },
+    {
+      "id": "CAT-0022",
+      "name": "Mental Health",
+      "image": "https://images.unsplash.com/photo-1527137341206-1a2ab2b14fca?auto=format&fit=crop&w=300&q=80",
+      "description": "Psychological counseling, therapy, and cognitive support to enhance mental well-being and emotional stability.",
+      "createdAt": "2026-07-27T17:43:14.090Z"
+    },
+    {
+      "id": "CAT-0023",
+      "name": "Cardiology",
+      "image": "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=300&q=80",
+      "description": "Heart screening, diagnostic imaging, and consultation for maintaining cardiovascular strength.",
+      "createdAt": "2026-07-27T17:43:14.090Z"
+    },
+    {
+      "id": "CAT-0024",
+      "name": "Physiotherapy",
+      "image": "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=300&q=80",
+      "description": "In-home rehabilitation sessions, stretching programs, and kinetic therapies designed to restore natural physical mobility.",
+      "createdAt": "2026-07-27T17:43:14.090Z"
+    },
+    {
+      "id": "CAT-0025",
+      "name": "Diagnostics",
+      "image": "https://images.unsplash.com/photo-1530026405186-ed1ea0ac7a63?auto=format&fit=crop&w=300&q=80",
+      "description": "Premium laboratory panel testing, urine analysis, and home blood draw services.",
+      "createdAt": "2026-07-27T17:43:14.090Z"
+    },
+    {
+      "id": "CAT-0026",
+      "name": "Nurse Care",
+      "image": "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=300&q=80",
+      "description": "Clinical nursing at home, post-surgical support, IV therapy, injection administration, and clinical diagnostics.",
+      "createdAt": "2026-07-27T17:43:14.090Z"
+    },
+    {
+      "id": "CAT-0027",
+      "name": "Elder Care",
+      "image": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=300&q=80",
+      "description": "Assisted living support, daily vitals tracking, medication management, and companion assistance for seniors.",
+      "createdAt": "2026-07-27T17:43:14.090Z"
+    },
+    {
+      "id": "CAT-0028",
+      "name": "Exercise & Fitness",
+      "image": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=300&q=80",
+      "description": "In-home personal training, fitness assessment, posture correction, and workout routines.",
+      "createdAt": "2026-07-27T17:43:14.090Z"
+    },
+    {
+      "id": "CAT-0029",
+      "name": "Sports Injury",
+      "image": "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=300&q=80",
+      "description": "Specialized athletic rehabilitation, joint stabilization, sprain management, and injury recovery.",
+      "createdAt": "2026-07-27T17:43:14.090Z"
+    }
+  ],
+  "services": [
+    {
+      "id": "SRV-1001",
+      "name": "General Dental Checkup",
+      "categoryId": "CAT-0021",
+      "categoryName": "Dental Care",
+      "shortDescription": "Complete oral examination and scaling by a professional dentist.",
+      "longDescription": "Get a premium in-home or in-clinic general dental examination. This package includes high-contrast visual exams, tartar cleaning (scaling), polishing, and structured lifestyle recommendations for optimal long-term oral hygiene. Highly recommended every 6 months.",
+      "image": "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 350,
+      "sellingPrice": 250,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse"
+      ],
+      "status": "Active",
+      "rating": 4.9,
+      "reviewsCount": 42
+    },
+    {
+      "id": "SRV-1002",
+      "name": "Comprehensive Lab Panel",
+      "categoryId": "CAT-0025",
+      "categoryName": "Diagnostics",
+      "shortDescription": "DHA-certified nurse home collection covering 85 essential biomarkers.",
+      "longDescription": "The ultimate wellness tracker covering complete metabolic rate, kidney profiles, lipid profiles, thyroid parameters, liver performance, and vital blood elements. Collected by a DHA-certified specialist with highly accurate laboratory diagnostic reports returned securely within 24 hours.",
+      "image": "https://images.unsplash.com/photo-1579154204601-01588f351167?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 625,
+      "sellingPrice": 499,
+      "genderFocus": "All Genders",
+      "ageGroup": "18+",
+      "vitalTrackingRequired": [
+        "Glucose",
+        "BP",
+        "Pulse"
+      ],
+      "status": "Active",
+      "rating": 5,
+      "reviewsCount": 124
+    },
+    {
+      "id": "SRV-1003",
+      "name": "Physician Home Visit",
+      "categoryId": "CAT-0026",
+      "categoryName": "Nurse Care",
+      "shortDescription": "DHA-licensed general practitioner home assessment.",
+      "longDescription": "Enjoy absolute convenience and personal clinical attention with a fully qualified, DHA-licensed General Practitioner visiting your home. Perfect for complete physiological evaluations, diagnostic screenings, acute disease checkups, and prescription issuances in the safety of your home.",
+      "image": "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 500,
+      "sellingPrice": 350,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse",
+        "Glucose",
+        "Weight"
+      ],
+      "status": "Active",
+      "rating": 4.8,
+      "reviewsCount": 88
+    },
+    {
+      "id": "SRV-1004",
+      "name": "Advanced Physiotherapy",
+      "categoryId": "CAT-0024",
+      "categoryName": "Physiotherapy",
+      "shortDescription": "Personalized motor-function rehabilitation session at home.",
+      "longDescription": "A specialized one-on-one session with a premium licensed physiotherapist focusing on structural kinetic exercises, pain management, joint mobilizations, and full motor-function restoration. Highly effective for persistent back pain, neck pain, stiffness, or active athletic recoveries.",
+      "image": "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 400,
+      "sellingPrice": 280,
+      "genderFocus": "All Genders",
+      "ageGroup": "18+",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse"
+      ],
+      "status": "Active",
+      "rating": 4.9,
+      "reviewsCount": 61
+    },
+    {
+      "id": "SRV-1005",
+      "name": "Full Body Checkup",
+      "categoryId": "CAT-0025",
+      "categoryName": "Diagnostics",
+      "shortDescription": "Essential general wellness and metabolic blood screening.",
+      "longDescription": "A balanced health audit detailing fundamental biochemical elements including glucose level, blood cell counts, basic lipid percentages, and kidney status trackers. Excellent starting indicator for general physical wellness.",
+      "image": "https://images.unsplash.com/photo-1530026405186-ed1ea0ac7a63?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 200,
+      "sellingPrice": 129,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "Glucose",
+        "BP"
+      ],
+      "status": "Active",
+      "rating": 4.9,
+      "reviewsCount": 74
+    },
+    {
+      "id": "SRV-1006",
+      "name": "Diabetes Screening",
+      "categoryId": "CAT-0025",
+      "categoryName": "Diagnostics",
+      "shortDescription": "HbA1c & Fasting Blood Sugar tracking to audit diabetic health.",
+      "longDescription": "Essential test to monitor and detect diabetes early. Includes HbA1c (Average 3-month blood sugar levels) and Fasting Blood Glucose, with professional interpretation and guidelines for metabolic support.",
+      "image": "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 99,
+      "sellingPrice": 49,
+      "genderFocus": "All Genders",
+      "ageGroup": "18+",
+      "vitalTrackingRequired": [
+        "Glucose"
+      ],
+      "status": "Active",
+      "rating": 4.8,
+      "reviewsCount": 39
+    },
+    {
+      "id": "SRV-1007",
+      "name": "Thyroid Profile",
+      "categoryId": "CAT-0025",
+      "categoryName": "Diagnostics",
+      "shortDescription": "TSH, Free T3, and Free T4 hormone measurement panel.",
+      "longDescription": "Comprehensive test measuring Thyroid Stimulating Hormone (TSH), Free T3, and Free T4 to thoroughly analyze and diagnose hypo- or hyperthyroid functions. Crucial for understanding fatigue, metabolism, and hormonal balances.",
+      "image": "https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 120,
+      "sellingPrice": 75,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse"
+      ],
+      "status": "Active",
+      "rating": 5,
+      "reviewsCount": 22
+    },
+    {
+      "id": "SRV-1008",
+      "name": "Vitamin D Test",
+      "categoryId": "CAT-0025",
+      "categoryName": "Diagnostics",
+      "shortDescription": "25-Hydroxy Vitamin D level check to examine bone and immunity strength.",
+      "longDescription": "Tracks active levels of Vitamin D (25-Hydroxy) to verify bone Density, muscular resilience, joint pain causes, and immune capabilities. Includes clinical dose feedback.",
+      "image": "https://images.unsplash.com/photo-1616671285420-94d30623a854?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 90,
+      "sellingPrice": 55,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP"
+      ],
+      "status": "Active",
+      "rating": 4.7,
+      "reviewsCount": 56
+    },
+    {
+      "id": "SRV-1009",
+      "name": "Post-Surgical Rehab",
+      "categoryId": "CAT-0024",
+      "categoryName": "Physiotherapy",
+      "shortDescription": "Specialized in-home therapeutic recovery following surgeries.",
+      "longDescription": "Targeted physical therapy to safely recover mobility, strength, and stamina post-orthopedic or general surgery. Led by a clinical specialist with customized range-of-motion progressions.",
+      "image": "https://images.unsplash.com/photo-1586015555751-63bb77f4322a?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 150,
+      "sellingPrice": 85,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse"
+      ],
+      "status": "Active",
+      "rating": 4.9,
+      "reviewsCount": 33
+    },
+    {
+      "id": "SRV-1010",
+      "name": "Back Pain Relief Session",
+      "categoryId": "CAT-0024",
+      "categoryName": "Physiotherapy",
+      "shortDescription": "Targeted lumbar release and postural realignment program.",
+      "longDescription": "A specialized physical care layout to address lower back pain, sciatica, and postural tension. Integrates manual mobilization techniques, therapeutic stretching, and core stability feedback.",
+      "image": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 110,
+      "sellingPrice": 70,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP"
+      ],
+      "status": "Active",
+      "rating": 4.6,
+      "reviewsCount": 45
+    },
+    {
+      "id": "SRV-1011",
+      "name": "Daily Vitals Check",
+      "categoryId": "CAT-0026",
+      "categoryName": "Nurse Care",
+      "shortDescription": "Structured tracking of blood pressure, pulse, oxygen, and glucose.",
+      "longDescription": "An in-home visit by a certified auxiliary nurse to carefully measure, record, and log cardiovascular and metabolic vitals. Ideal for keeping a highly reliable, continuous clinic record for elder or post-surgical patients.",
+      "image": "https://images.unsplash.com/photo-1504813184591-015556c5c528?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 60,
+      "sellingPrice": 40,
+      "genderFocus": "All Genders",
+      "ageGroup": "Seniors",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse",
+        "Glucose"
+      ],
+      "status": "Active",
+      "rating": 4.9,
+      "reviewsCount": 19
+    },
+    {
+      "id": "SRV-1012",
+      "name": "Post-Operative Care",
+      "categoryId": "CAT-0026",
+      "categoryName": "Nurse Care",
+      "shortDescription": "Complete clinical home assistance covering dressings and medications.",
+      "longDescription": "Professional nurse monitoring including surgical dressing changes, medication schedules, pain administration, hydration checks, and vitals recording under the supervision of a clinical lead doctor.",
+      "image": "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 180,
+      "sellingPrice": 110,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse",
+        "Glucose"
+      ],
+      "status": "Active",
+      "rating": 4.9,
+      "reviewsCount": 28
+    },
+    {
+      "id": "SRV-1013",
+      "name": "In-Home Personal Fitness Trainer",
+      "categoryId": "CAT-0028",
+      "categoryName": "Exercise & Fitness",
+      "shortDescription": "One-on-one custom fitness session with a certified personal trainer.",
+      "longDescription": "Work out in the comfort and privacy of your home with a certified fitness specialist. Tailored for endurance, weight loss, core strength, and muscle building using specialized portable equipment.",
+      "image": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 150,
+      "sellingPrice": 99,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse"
+      ],
+      "status": "Active",
+      "rating": 4.9,
+      "reviewsCount": 38
+    },
+    {
+      "id": "SRV-1014",
+      "name": "Sports Injury Rehab & Recovery",
+      "categoryId": "CAT-0029",
+      "categoryName": "Sports Injury",
+      "shortDescription": "Targeted therapy for ligament sprains, muscle tears, and athletic recovery.",
+      "longDescription": "Comprehensive clinical evaluation and treatment for acute or chronic sports injuries including ACL/MCL strain, shoulder rotator cuff issues, runner's knee, and ankle sprains.",
+      "image": "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 200,
+      "sellingPrice": 135,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP"
+      ],
+      "status": "Active",
+      "rating": 5,
+      "reviewsCount": 29
+    },
+    {
+      "id": "SRV-1015",
+      "name": "Elderly Health Monitoring",
+      "categoryId": "CAT-0027",
+      "categoryName": "Elder Care",
+      "shortDescription": "Regular health monitoring and vitals tracking for seniors.",
+      "longDescription": "Comprehensive at-home daily wellness checks, vitals recording, and assisted living monitoring tailored for senior citizens.",
+      "image": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 300,
+      "sellingPrice": 280,
+      "genderFocus": "All Genders",
+      "ageGroup": "Seniors",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse",
+        "Glucose"
+      ],
+      "status": "Active",
+      "rating": 5,
+      "reviewsCount": 16
+    },
+    {
+      "id": "SRV-1016",
+      "name": "Personal Fitness Assessment",
+      "categoryId": "CAT-0028",
+      "categoryName": "Exercise & Fitness",
+      "shortDescription": "Body fitness evaluation and movement analysis.",
+      "longDescription": "Professional body composition, cardiovascular endurance, and kinetic flexibility analysis conducted at home by a certified trainer.",
+      "image": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 120,
+      "sellingPrice": 80,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse"
+      ],
+      "status": "Active",
+      "rating": 5,
+      "reviewsCount": 24
+    },
+    {
+      "id": "SRV-1017",
+      "name": "Weight Loss & Body Composition Program",
+      "categoryId": "CAT-0028",
+      "categoryName": "Exercise & Fitness",
+      "shortDescription": "Customized metabolic and weight management regimen.",
+      "longDescription": "In-home body fat analysis, customized cardio regimen, and endurance coaching supervised by a fitness specialist.",
+      "image": "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 220,
+      "sellingPrice": 160,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse"
+      ],
+      "status": "Active",
+      "rating": 5,
+      "reviewsCount": 31
+    },
+    {
+      "id": "SRV-1018",
+      "name": "Yoga & Posture Alignment Session",
+      "categoryId": "CAT-0028",
+      "categoryName": "Exercise & Fitness",
+      "shortDescription": "Holistic flexibility, core stability, and spinal posture correction.",
+      "longDescription": "Personalized therapeutic yoga session targeting spinal alignment, deep muscle flexibility, and mindfulness at home.",
+      "image": "https://images.unsplash.com/photo-1545205597-3d9d02c29597?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 140,
+      "sellingPrice": 95,
+      "genderFocus": "All Genders",
+      "ageGroup": "All Ages",
+      "vitalTrackingRequired": [
+        "BP"
+      ],
+      "status": "Active",
+      "rating": 4.9,
+      "reviewsCount": 22
+    },
+    {
+      "id": "SRV-1019",
+      "name": "Senior Assisted Living Support",
+      "categoryId": "CAT-0027",
+      "categoryName": "Elder Care",
+      "shortDescription": "Dedicated companion assistance, mobility aid, and personal care.",
+      "longDescription": "Comprehensive non-clinical and assisted support for elderly individuals including grooming aid, mobility encouragement, and daily companion care.",
+      "image": "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?auto=format&fit=crop&w=500&q=80",
+      "mrpPrice": 250,
+      "sellingPrice": 190,
+      "genderFocus": "All Genders",
+      "ageGroup": "Seniors",
+      "vitalTrackingRequired": [
+        "BP",
+        "Pulse"
+      ],
+      "status": "Active",
+      "rating": 4.9,
+      "reviewsCount": 18
+    }
+  ],
+  "bookings": [
+    {
+      "id": "#BOOK-9921",
+      "serviceId": "SRV-1003",
+      "serviceName": "Physician Home Visit",
+      "categoryName": "Nurse Care",
+      "date": "2026-07-20",
+      "time": "10:00 AM",
+      "slot": "Morning",
+      "bookingForSomeoneElse": false,
+      "patientDetails": {
+        "firstName": "Sarah",
+        "lastName": "Jenkins",
+        "email": "sarah@example.com",
+        "phone": "+971 50 123 4567",
+        "dob": "1990-05-15",
+        "relation": "Self",
+        "gender": "Female"
+      },
+      "status": "Confirmed",
+      "price": 350,
+      "createdAt": "2026-07-27T17:43:14.090Z"
+    },
+    {
+      "id": "#BOOK-9922",
+      "serviceId": "SRV-1001",
+      "serviceName": "General Dental Checkup",
+      "categoryName": "Dental Care",
+      "date": "2026-07-21",
+      "time": "02:00 PM",
+      "slot": "Afternoon",
+      "bookingForSomeoneElse": false,
+      "patientDetails": {
+        "firstName": "Marcus",
+        "lastName": "Thorne",
+        "email": "marcus@example.com",
+        "phone": "+971 50 765 4321",
+        "dob": "1985-11-20",
+        "relation": "Self",
+        "gender": "Male"
+      },
+      "status": "Pending",
+      "price": 250,
+      "createdAt": "2026-07-27T17:43:14.090Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": "#ORD-9921",
+      "customerName": "Sarah Jenkins",
+      "customerEmail": "sarah@example.com",
+      "items": [
+        {
+          "serviceId": "SRV-1003",
+          "serviceName": "Physician Home Visit",
+          "price": 350,
+          "quantity": 1,
+          "image": "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=500&q=80"
+        }
+      ],
+      "date": "Oct 12, 2023",
+      "total": 350,
+      "paymentStatus": "Paid"
+    },
+    {
+      "id": "#ORD-9922",
+      "customerName": "Marcus Thorne",
+      "customerEmail": "marcus@example.com",
+      "items": [
+        {
+          "serviceId": "SRV-1001",
+          "serviceName": "General Dental Checkup",
+          "price": 250,
+          "quantity": 1,
+          "image": "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=500&q=80"
+        }
+      ],
+      "date": "Oct 12, 2023",
+      "total": 250,
+      "paymentStatus": "Unpaid"
+    },
+    {
+      "id": "#ORD-9923",
+      "customerName": "Elena Rodriguez",
+      "customerEmail": "elena@example.com",
+      "items": [
+        {
+          "serviceId": "SRV-1002",
+          "serviceName": "Comprehensive Lab Panel",
+          "price": 499,
+          "quantity": 1,
+          "image": "https://images.unsplash.com/photo-1579154204601-01588f351167?auto=format&fit=crop&w=500&q=80"
+        }
+      ],
+      "date": "Oct 11, 2023",
+      "total": 499,
+      "paymentStatus": "Refunded"
+    }
+  ],
+  "reviews": [
+    {
+      "id": "REV-2001",
+      "serviceId": "SRV-1002",
+      "serviceName": "Comprehensive Lab Panel",
+      "userName": "Ahmed Al Mansoori",
+      "rating": 5,
+      "comment": "Excellent service! The nurse was very professional and gentle. Reports were delivered in less than 12 hours.",
+      "date": "2026-07-01"
+    }
+  ],
+  "collectedCash": [
+    {
+      "id": "CASH-3001",
+      "bookingId": "#BOOK-9921",
+      "amount": 350,
+      "collectedBy": "Admin User",
+      "date": "Oct 12, 2023",
+      "notes": "Cash collected at home visit"
+    }
+  ]
+}
