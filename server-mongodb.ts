@@ -68,7 +68,7 @@ const BookingSchema = new Schema({
   assignedDoctorSpecialization: { type: String },
   assignedDoctorPhoto: { type: String },
   assignedAt: { type: String }
-});
+}, { strict: false });
 
 const OrderServiceSchema = new Schema({
   serviceId: { type: String, required: true },
@@ -120,7 +120,7 @@ const OrderSchema = new Schema({
   items: { type: [Schema.Types.Mixed], default: [] },
   date: { type: String },
   total: { type: Number }
-});
+}, { strict: false });
 
 const DoctorSchema = new Schema({
   id: { type: String, required: true, unique: true },
@@ -501,11 +501,17 @@ export async function addBooking(booking: Booking): Promise<Booking> {
 }
 
 export async function updateBooking(id: string, updatedFields: Partial<Booking>): Promise<Booking | null> {
+  const cleanId = id ? (id.startsWith("#") ? id.slice(1) : id) : "";
+  const hashId = id ? (id.startsWith("#") ? id : "#" + id) : "";
   if (isConnected) {
-    const updated = await BookingModel.findOneAndUpdate({ id } as any, { $set: updatedFields } as any, { new: true } as any).lean();
+    const updated = await BookingModel.findOneAndUpdate(
+      { $or: [{ id }, { id: cleanId }, { id: hashId }, { _id: id }] } as any, 
+      { $set: updatedFields } as any, 
+      { new: true } as any
+    ).lean();
     return updated as any;
   }
-  const idx = fallbackDb.bookings.findIndex((b: any) => b.id === id);
+  const idx = fallbackDb.bookings.findIndex((b: any) => b.id === id || b.id === cleanId || b.id === hashId || b._id === id);
   if (idx === -1) return null;
   fallbackDb.bookings[idx] = { ...fallbackDb.bookings[idx], ...updatedFields };
   callSaveFallback();
@@ -521,10 +527,12 @@ export async function getOrders(): Promise<Order[]> {
 }
 
 export async function getOrderById(id: string): Promise<Order | null> {
+  const cleanId = id ? (id.startsWith("#") ? id.slice(1) : id) : "";
+  const hashId = id ? (id.startsWith("#") ? id : "#" + id) : "";
   if (isConnected) {
-    return await OrderModel.findOne({ id } as any).lean();
+    return await OrderModel.findOne({ $or: [{ id }, { id: cleanId }, { id: hashId }, { _id: id }] } as any).lean();
   }
-  return fallbackDb.orders.find((o: any) => o.id === id) || null;
+  return fallbackDb.orders.find((o: any) => o.id === id || o.id === cleanId || o.id === hashId || o._id === id) || null;
 }
 
 export async function getOrdersByUserId(userId: string, email?: string): Promise<Order[]> {
@@ -572,11 +580,17 @@ export async function addOrder(order: Order): Promise<Order> {
 }
 
 export async function updateOrder(id: string, updatedFields: Partial<Order>): Promise<Order | null> {
+  const cleanId = id ? (id.startsWith("#") ? id.slice(1) : id) : "";
+  const hashId = id ? (id.startsWith("#") ? id : "#" + id) : "";
   if (isConnected) {
-    const updated = await OrderModel.findOneAndUpdate({ $or: [{ id }, { _id: id }] } as any, { $set: { ...updatedFields, updatedAt: new Date().toISOString() } } as any, { new: true } as any).lean();
+    const updated = await OrderModel.findOneAndUpdate(
+      { $or: [{ id }, { id: cleanId }, { id: hashId }, { _id: id }] } as any, 
+      { $set: { ...updatedFields, updatedAt: new Date().toISOString() } } as any, 
+      { new: true } as any
+    ).lean();
     return updated as any;
   }
-  const idx = fallbackDb.orders.findIndex((o: any) => o.id === id || o._id === id);
+  const idx = fallbackDb.orders.findIndex((o: any) => o.id === id || o.id === cleanId || o.id === hashId || o._id === id);
   if (idx === -1) return null;
   fallbackDb.orders[idx] = { ...fallbackDb.orders[idx], ...updatedFields, updatedAt: new Date().toISOString() };
   callSaveFallback();

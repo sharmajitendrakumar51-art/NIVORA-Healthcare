@@ -3,6 +3,7 @@ import { useLocation, Link } from "react-router-dom";
 import { Search, Filter, Sparkles, CheckCircle, ChevronDown, RefreshCw } from "lucide-react";
 import { Service, Category } from "../types";
 import { getImageUrl } from "../utils/translations";
+import InsuranceMarquee from "../components/InsuranceMarquee";
 
 interface DoctorVisitProps {
   categories: Category[];
@@ -332,6 +333,11 @@ export default function DoctorVisit({ categories, services, onBookImmediate, def
             </div>
           )}
         </main>
+      </div>
+
+      {/* Insurance Partners Marquee */}
+      <div className="mt-12 border-t border-gray-200 pt-8">
+        <InsuranceMarquee />
       </div>
     </div>
   );

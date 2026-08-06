@@ -48,7 +48,9 @@ export default function DoctorPatientChatModal({
 
   const appointmentId = appointment?.id || appointment?._id || "APP-UNKNOWN";
   const patientName = appointment?.patientName || appointment?.customerName || "Patient";
-  const doctorName = appointment?.doctorName || "Dr. Nivora Specialist (DHA Licensed)";
+  const doctorName = appointment?.assignedDoctorName || appointment?.doctorName || "Dr. Nivora Specialist (DHA Licensed)";
+  const doctorSpecialization = appointment?.assignedDoctorSpecialization || "DHA Specialist";
+  const doctorPhone = appointment?.assignedDoctorPhone || "+971 50 888 1234";
   const serviceTitle = appointment?.services?.[0]?.serviceName || appointment?.items?.[0]?.serviceName || appointment?.serviceName || "Home Healthcare Service";
   const appointmentDate = appointment?.appointmentDate || appointment?.date || "Today";
   const appointmentTime = appointment?.appointmentTime || appointment?.time || "Scheduled Slot";
@@ -277,7 +279,7 @@ export default function DoctorPatientChatModal({
                   {currentUserRole === "patient" ? doctorName : patientName}
                 </h3>
                 <span className="bg-emerald-600/50 text-emerald-100 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border border-emerald-400/30">
-                  {currentUserRole === "patient" ? "DHA Specialist" : "Patient"}
+                  {currentUserRole === "patient" ? (doctorSpecialization || "DHA Specialist") : "Patient"}
                 </span>
               </div>
 

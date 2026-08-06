@@ -22,6 +22,7 @@ interface AdminLayoutProps {
   users: User[];
   onDeleteUser: (id: string) => Promise<void>;
   onUpdateUser?: (id: string, updated: Partial<User>) => Promise<void>;
+  onRefreshData?: () => void;
 }
 
 export default function AdminLayout({
@@ -39,7 +40,8 @@ export default function AdminLayout({
   onDeleteService,
   users,
   onDeleteUser,
-  onUpdateUser
+  onUpdateUser,
+  onRefreshData
 }: AdminLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -107,6 +109,7 @@ export default function AdminLayout({
             users={users}
             onDeleteUser={onDeleteUser}
             onUpdateUser={onUpdateUser}
+            onRefreshData={onRefreshData}
             currentTab={activeTab}
             adminUser={adminUser}
           />

@@ -59,6 +59,7 @@ function NavigationWrapper({
   users,
   onDeleteUser,
   onUpdateUser,
+  onRefreshData,
   adminTab,
   setAdminTab,
   language,
@@ -94,6 +95,7 @@ function NavigationWrapper({
   users: User[];
   onDeleteUser: (id: string) => Promise<void>;
   onUpdateUser?: (id: string, updated: Partial<User>) => Promise<void>;
+  onRefreshData?: () => void;
   adminTab: string;
   setAdminTab: (t: string) => void;
   language: Language;
@@ -132,6 +134,7 @@ function NavigationWrapper({
           users={users}
           onDeleteUser={onDeleteUser}
           onUpdateUser={onUpdateUser}
+          onRefreshData={onRefreshData}
         />
       </ProtectedRoute>
     );
@@ -721,6 +724,7 @@ export default function App() {
                 users={users}
                 onDeleteUser={handleDeleteUser}
                 onUpdateUser={handleUpdateUser}
+                onRefreshData={loadData}
                 adminTab={adminTab}
                 setAdminTab={setAdminTab}
                 language={language}

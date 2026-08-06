@@ -50,6 +50,7 @@ interface AdminDashboardProps {
   users: User[];
   onDeleteUser: (id: string) => Promise<any>;
   onUpdateUser?: (id: string, updated: Partial<User>) => Promise<any>;
+  onRefreshData?: () => void;
   currentTab?: string;
   adminUser?: any;
 }
@@ -70,6 +71,7 @@ export default function AdminDashboard({
   users = [],
   onDeleteUser,
   onUpdateUser,
+  onRefreshData,
   currentTab = "categories",
   adminUser
 }: AdminDashboardProps) {
@@ -236,7 +238,14 @@ export default function AdminDashboard({
       });
 
       if (res.ok) {
-        const targetOrder = adminOrdersList.find(o => o.id === appointmentId);
+        const resData = await res.json();
+        const updatedOrder = resData.order;
+
+        if (updatedOrder) {
+          setAdminOrdersList(prev => prev.map(o => (o.id === appointmentId || o.id === updatedOrder.id) ? { ...o, ...updatedOrder } : o));
+        }
+
+        const targetOrder = adminOrdersList.find(o => o.id === appointmentId) || updatedOrder;
         if (targetOrder) {
           sendAppointmentConfirmationEmail({
             patientName: targetOrder.patientName || targetOrder.customerName || "Valued Patient",
@@ -252,7 +261,10 @@ export default function AdminDashboard({
 
         setSuccessMsg(`Doctor ${doc.fullName} assigned to appointment ${appointmentId}! Status set to Confirmed & Confirmation Email dispatched.`);
         setTimeout(() => setSuccessMsg(""), 4500);
-        fetchAdminOrders();
+        await fetchAdminOrders();
+        if (onRefreshData) {
+          onRefreshData();
+        }
       }
     } catch (err) {
       console.error("Error assigning doctor:", err);

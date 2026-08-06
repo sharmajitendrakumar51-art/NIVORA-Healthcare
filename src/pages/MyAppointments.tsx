@@ -380,6 +380,14 @@ export default function MyAppointments({ orders: initialOrders = [], user }: MyA
                             <p className="text-[9px] text-slate-500 truncate mt-0.5">
                               📞 {ord.assignedDoctorPhone || "N/A"}
                             </p>
+                            <button
+                              onClick={() => setActiveChatOrder(ord)}
+                              className="mt-1.5 px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-md text-[10px] transition inline-flex items-center space-x-1 cursor-pointer shadow-2xs"
+                              title="Chat directly with your assigned specialist"
+                            >
+                              <MessageSquare className="w-3 h-3 text-emerald-200" />
+                              <span>Chat Now</span>
+                            </button>
                           </div>
                         </div>
                       ) : (

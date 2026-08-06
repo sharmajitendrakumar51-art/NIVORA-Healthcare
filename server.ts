@@ -1831,12 +1831,18 @@ app.put("/api/admin/appointments/:id/assign", authenticateJWT, requireAdmin, asy
       status: "Confirmed"
     };
 
-    const updatedOrder = await updateOrder(appointmentId, updatePayload);
+    let updatedOrder = await updateOrder(appointmentId, updatePayload);
     
     // Also update corresponding booking if exists
     try {
       const allBookings = await getBookings();
-      const matchBooking = allBookings.find(b => b.id === appointmentId || b.id.replace("#BOOK-", "") === appointmentId.replace("#ORD-", ""));
+      const cleanApptId = appointmentId.replace("#ORD-", "").replace("ORD-", "").replace("#BOOK-", "").replace("BOOK-", "");
+      const matchBooking = allBookings.find(b => 
+        b.id === appointmentId || 
+        b.id.replace("#BOOK-", "").replace("BOOK-", "") === cleanApptId ||
+        b.id.replace("#ORD-", "").replace("ORD-", "") === cleanApptId
+      );
+
       if (matchBooking) {
         await updateBooking(matchBooking.id, {
           assignedDoctor,
@@ -1848,6 +1854,47 @@ app.put("/api/admin/appointments/:id/assign", authenticateJWT, requireAdmin, asy
           assignedAt,
           status: "Confirmed"
         });
+
+        if (!updatedOrder) {
+          const syncedOrder: Order = {
+            id: appointmentId.startsWith("#ORD-") ? appointmentId : `#ORD-${cleanApptId}`,
+            userId: matchBooking.patientDetails?.email || "USR-002",
+            patientName: matchBooking.patientDetails ? `${matchBooking.patientDetails.firstName || ''} ${matchBooking.patientDetails.lastName || ''}`.trim() || "Patient" : "Patient",
+            email: matchBooking.patientDetails?.email || "",
+            phone: matchBooking.patientDetails?.phone || "",
+            dateOfBirth: matchBooking.patientDetails?.dob || "1995-01-01",
+            gender: matchBooking.patientDetails?.gender || "Other",
+            relation: matchBooking.bookingForSomeoneElse ? "Family" : "Self",
+            appointmentDate: matchBooking.date,
+            appointmentTime: matchBooking.time,
+            timeSlot: matchBooking.slot,
+            notes: matchBooking.notes || "",
+            services: [{
+              serviceId: matchBooking.serviceId,
+              serviceName: matchBooking.serviceName,
+              serviceImage: "",
+              price: matchBooking.price,
+              quantity: 1,
+              subtotal: matchBooking.price
+            }],
+            discount: 0,
+            totalAmount: matchBooking.price,
+            paymentMethod: "Cash on Appointment",
+            paymentStatus: "Pending",
+            orderStatus: "Confirmed",
+            status: "Confirmed",
+            createdAt: matchBooking.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            assignedDoctor,
+            assignedDoctorName,
+            assignedDoctorEmail,
+            assignedDoctorPhone,
+            assignedDoctorSpecialization,
+            assignedDoctorPhoto,
+            assignedAt
+          };
+          updatedOrder = await addOrder(syncedOrder);
+        }
       }
     } catch (bookingUpdateErr) {
       console.warn("Error syncing booking assignment status:", bookingUpdateErr);

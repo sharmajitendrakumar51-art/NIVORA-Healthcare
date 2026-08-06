@@ -28,6 +28,7 @@ import "swiper/css/navigation";
 import "swiper/css/pagination";
 
 import { Service, Category } from "../types";
+import InsuranceMarquee from "../components/InsuranceMarquee";
 import { Language, getTranslation, getImageUrl } from "../utils/translations";
 
 interface HomeProps {
@@ -587,28 +588,9 @@ export default function Home({
         </div>
       </section>
 
-      {/* 6. OUR ESTEEMED PARTNERS */}
-      <section className="max-w-7xl mx-auto px-4 md:px-8 border-t border-gray-200 pt-12">
-        <div className="text-center mb-8">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest font-display">Our Esteemed Insurance & Hospital Partners</h3>
-          <p className="text-[11px] text-gray-400 mt-1">Seamless direct billing and claims settlement</p>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4">
-          {partners.map((pt, i) => (
-            <div 
-              key={i}
-              className="bg-white px-4 py-5.5 rounded-xl border border-gray-150 text-center flex flex-col justify-center items-center shadow-xs select-none hover:border-amber-300 transition"
-            >
-              <span className="text-xs font-extrabold text-slate-800 tracking-tight font-display">
-                {pt.name}
-              </span>
-              <span className="text-[8px] font-bold text-primary-green uppercase tracking-wider mt-1">
-                {pt.desc}
-              </span>
-            </div>
-          ))}
-        </div>
+      {/* 6. OUR ESTEEMED PARTNERS (INFINITE RESPONSIVE MARQUEE) */}
+      <section className="w-full border-t border-gray-200 pt-8">
+        <InsuranceMarquee partners={partners} />
       </section>
     </div>
   );

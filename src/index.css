@@ -40,3 +40,23 @@
   box-shadow: 0 0 10px rgba(47, 93, 52, 0.6);
 }
 
+/* Infinite Marquee Keyframes and Utility Classes */
+@keyframes infinite-marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-infinite-marquee {
+  display: flex;
+  width: max-content;
+  animation: infinite-marquee 28s linear infinite;
+}
+
+.animate-infinite-marquee:hover {
+  animation-play-state: paused;
+}
+
