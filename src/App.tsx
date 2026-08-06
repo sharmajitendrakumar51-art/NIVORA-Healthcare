@@ -58,6 +58,7 @@ function NavigationWrapper({
   onDeleteService,
   users,
   onDeleteUser,
+  onUpdateUser,
   adminTab,
   setAdminTab,
   language,
@@ -92,6 +93,7 @@ function NavigationWrapper({
   onDeleteService?: (id: string) => Promise<any>;
   users: User[];
   onDeleteUser: (id: string) => Promise<void>;
+  onUpdateUser?: (id: string, updated: Partial<User>) => Promise<void>;
   adminTab: string;
   setAdminTab: (t: string) => void;
   language: Language;
@@ -129,6 +131,7 @@ function NavigationWrapper({
           onDeleteService={onDeleteService}
           users={users}
           onDeleteUser={onDeleteUser}
+          onUpdateUser={onUpdateUser}
         />
       </ProtectedRoute>
     );
@@ -354,12 +357,14 @@ export default function App() {
         fetch("/api/services").then(r => r.json()),
         fetch("/api/bookings", { headers }).then(r => r.json()),
         fetch(orderEndpoint, { headers }).then(r => r.json().catch(() => [])),
-        fetch("/api/collected-cash").then(r => r.json()),
-        fetch("/api/users").then(r => r.json())
+        fetch("/api/collected-cash", { headers }).then(r => r.json().catch(() => [])),
+        fetch("/api/users", { headers }).then(r => r.json().catch(() => []))
       ]);
+      console.log("Categories API response:", catRes);
+      console.log("Users API response:", userRes);
 
-      setCategories(Array.isArray(catRes) ? catRes : []);
-      setServices(Array.isArray(srvRes) ? srvRes : []);
+      setCategories(Array.isArray(catRes) ? catRes.filter((c: any) => c && c.id && typeof c.name === "string" && c.name.length > 0) : []);
+      setServices(Array.isArray(srvRes) ? srvRes.filter((s: any) => s && s.id && typeof s.name === "string" && s.name.length > 0) : []);
       setBookings(Array.isArray(bookRes) ? bookRes : []);
       setOrders(Array.isArray(ordRes) ? ordRes : []);
       setCollectedCash(Array.isArray(cashRes) ? cashRes : []);
@@ -381,38 +386,70 @@ export default function App() {
     }
   }, [cart]);
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("nivora_token") || localStorage.getItem("token");
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {})
+    };
+  };
+
   // API Mutators
   const handleAddCategory = async (catData: Partial<Category>) => {
-    const res = await fetch("/api/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(catData)
-    });
-    const newCat = await res.json();
-    setCategories(prev => [...prev, newCat]);
-    return newCat;
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(catData)
+      });
+      if (!res.ok) {
+        console.error("Failed to add category:", res.statusText);
+        return null;
+      }
+      const newCat = await res.json();
+      if (newCat && newCat.id && typeof newCat.name === "string") {
+        setCategories(prev => [...prev.filter(c => c.id !== newCat.id), newCat]);
+        return newCat;
+      }
+    } catch (err) {
+      console.error("Error adding category:", err);
+    }
+    return null;
   };
 
   const handleAddService = async (srvData: Partial<Service>) => {
-    const res = await fetch("/api/services", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(srvData)
-    });
-    const newSrv = await res.json();
-    setServices(prev => [newSrv, ...prev]);
-    return newSrv;
+    try {
+      const res = await fetch("/api/services", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(srvData)
+      });
+      if (!res.ok) {
+        console.error("Failed to add service:", res.statusText);
+        return null;
+      }
+      const newSrv = await res.json();
+      if (newSrv && newSrv.id && typeof newSrv.name === "string") {
+        setServices(prev => [newSrv, ...prev.filter(s => s.id !== newSrv.id)]);
+        return newSrv;
+      }
+    } catch (err) {
+      console.error("Error adding service:", err);
+    }
+    return null;
   };
 
   const handleUpdateBookingStatus = async (id: string, status: 'Confirmed' | 'Completed' | 'Cancelled') => {
     const targetBooking = bookings.find(b => b.id === id);
     const res = await fetch(`/api/bookings/${encodeURIComponent(id)}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ status })
     });
     const updated = await res.json();
-    setBookings(prev => prev.map(b => b.id === id ? updated : b));
+    if (updated && updated.id) {
+      setBookings(prev => prev.map(b => b.id === id ? updated : b));
+    }
     loadData(); // Reload stats/cash collected
 
     if (status === "Cancelled") {
@@ -444,46 +481,103 @@ export default function App() {
   };
 
   const handleUpdateService = async (id: string, updatedFields: Partial<Service>) => {
-    const res = await fetch(`/api/services/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedFields)
-    });
-    const updated = await res.json();
-    setServices(prev => prev.map(s => s.id === id ? updated : s));
-    return updated;
+    try {
+      const res = await fetch(`/api/services/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updatedFields)
+      });
+      if (!res.ok) return null;
+      const updated = await res.json();
+      if (updated && updated.id) {
+        setServices(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
+        return updated;
+      }
+    } catch (err) {
+      console.error("Error updating service:", err);
+    }
+    return null;
   };
 
   const handleUpdateCategory = async (id: string, updatedFields: Partial<Category>) => {
-    const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedFields)
-    });
-    const updated = await res.json();
-    setCategories(prev => prev.map(c => c.id === id ? updated : c));
-    return updated;
+    try {
+      const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updatedFields)
+      });
+      if (!res.ok) return null;
+      const updated = await res.json();
+      if (updated && updated.id) {
+        setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updated } : c));
+        return updated;
+      }
+    } catch (err) {
+      console.error("Error updating category:", err);
+    }
+    return null;
   };
 
   const handleDeleteCategory = async (id: string) => {
-    await fetch(`/api/categories/${encodeURIComponent(id)}`, {
-      method: "DELETE"
-    });
-    setCategories(prev => prev.filter(c => c.id !== id));
+    try {
+      const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        setCategories(prev => prev.filter(c => c.id !== id));
+      }
+    } catch (err) {
+      console.error("Error deleting category:", err);
+    }
   };
 
   const handleDeleteService = async (id: string) => {
-    await fetch(`/api/services/${encodeURIComponent(id)}`, {
-      method: "DELETE"
-    });
-    setServices(prev => prev.filter(s => s.id !== id));
+    try {
+      const res = await fetch(`/api/services/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        setServices(prev => prev.filter(s => s.id !== id));
+      }
+    } catch (err) {
+      console.error("Error deleting service:", err);
+    }
   };
 
   const handleDeleteUser = async (id: string) => {
+    const token = localStorage.getItem("nivora_token") || localStorage.getItem("token");
+    const headers: Record<string, string> = token ? { "Authorization": `Bearer ${token}` } : {};
     await fetch(`/api/users/${encodeURIComponent(id)}`, {
-      method: "DELETE"
+      method: "DELETE",
+      headers
     });
     setUsers(prev => prev.filter(u => u.id !== id));
+  };
+
+  const handleUpdateUser = async (id: string, updatedFields: Partial<User>) => {
+    try {
+      const token = localStorage.getItem("nivora_token") || localStorage.getItem("token");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+      };
+      const res = await fetch(`/api/users/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(updatedFields)
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        setUsers(prev => prev.map(u => (u.id === id ? { ...u, ...data.user } : u)));
+      } else {
+        setUsers(prev => prev.map(u => (u.id === id ? { ...u, ...updatedFields } : u)));
+      }
+    } catch (e) {
+      console.error("Error updating user:", e);
+      setUsers(prev => prev.map(u => (u.id === id ? { ...u, ...updatedFields } : u)));
+    }
   };
 
   // Cart operations
@@ -626,6 +720,7 @@ export default function App() {
                 onDeleteService={handleDeleteService}
                 users={users}
                 onDeleteUser={handleDeleteUser}
+                onUpdateUser={handleUpdateUser}
                 adminTab={adminTab}
                 setAdminTab={setAdminTab}
                 language={language}

@@ -1,5 +1,13 @@
 {
-  "users": [],
+  "users": [
+    {
+      "id": "USR-1000",
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john.doe@example.com",
+      "phone": "+1 555 555 5555"
+    }
+  ],
   "doctors": [
     {
       "id": "DOC-101",

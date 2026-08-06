@@ -163,8 +163,19 @@ const UserSchema = new Schema({
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
   email: { type: String, required: true, unique: true },
-  phone: { type: String }
-});
+  phone: { type: String },
+  gender: { type: String },
+  dob: { type: String },
+  address: { type: String },
+  profilePhoto: { type: String },
+  status: { type: String, default: "Active" },
+  accountStatus: { type: String, default: "Active" },
+  emailVerified: { type: Schema.Types.Mixed, default: true },
+  lastLogin: { type: String },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+  updatedAt: { type: String, default: () => new Date().toISOString() },
+  role: { type: String, default: "User" }
+}, { strict: false });
 
 const DoctorPatientChatMessageSchema = new Schema({
   id: { type: String, required: true, unique: true },
@@ -295,11 +306,14 @@ const callSaveFallback = () => {
 export async function getUsers(): Promise<any[]> {
   if (isConnected) {
     try {
-      return await UserModel.find().lean();
+      const users = await UserModel.find().lean();
+      console.log("MongoDB getUsers returned:", users.length, "users");
+      return users;
     } catch (e) {
       console.warn("MongoDB getUsers failed, falling back to local memory storage:", e);
     }
   }
+  console.log("Returning fallback users:", fallbackDb ? fallbackDb.users.length : 0);
   return fallbackDb ? fallbackDb.users : [];
 }
 
@@ -340,6 +354,26 @@ export async function addUser(user: any): Promise<any> {
     callSaveFallback();
   }
   return user;
+}
+
+export async function updateUser(id: string, updatedFields: Partial<any>): Promise<any | null> {
+  if (isConnected) {
+    try {
+      const updated = await UserModel.findOneAndUpdate({ id } as any, { $set: updatedFields } as any, { new: true } as any).lean();
+      return updated;
+    } catch (e) {
+      console.warn("MongoDB updateUser failed, falling back to local memory storage:", e);
+    }
+  }
+  if (fallbackDb && fallbackDb.users) {
+    const idx = fallbackDb.users.findIndex((u: any) => u.id === id);
+    if (idx !== -1) {
+      fallbackDb.users[idx] = { ...fallbackDb.users[idx], ...updatedFields };
+      callSaveFallback();
+      return fallbackDb.users[idx];
+    }
+  }
+  return null;
 }
 
 export async function deleteUser(id: string): Promise<boolean> {

@@ -12,6 +12,7 @@ interface DoctorVisitProps {
 }
 
 export default function DoctorVisit({ categories, services, onBookImmediate, defaultCategoryName }: DoctorVisitProps) {
+  console.log("DoctorVisit categories:", categories);
   const location = useLocation();
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedAge, setSelectedAge] = useState<string>("all");
@@ -110,7 +111,7 @@ export default function DoctorVisit({ categories, services, onBookImmediate, def
 
           {/* Category */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2.5">Category</label>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2.5">Category ({categories.length})</label>
             <div className="space-y-1.5">
               <label className="flex items-center space-x-2 cursor-pointer text-xs font-medium text-gray-600 hover:text-slate-800">
                 <input

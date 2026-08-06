@@ -183,6 +183,10 @@ export default function Home({
                   src={getImageUrl(srv.image)} 
                   alt={srv.name} 
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).onerror = null;
+                    (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=500&q=80";
+                  }}
                 />
                 <span className="absolute top-2.5 left-2.5 bg-rose-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                   Save {Math.round(((srv.mrpPrice - srv.sellingPrice) / srv.mrpPrice) * 100)}%
@@ -452,6 +456,10 @@ export default function Home({
                       src={getImageUrl(srv.image)} 
                       alt={srv.name} 
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).onerror = null;
+                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=500&q=80";
+                      }}
                     />
                     <span className="absolute top-2.5 left-2.5 bg-rose-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                       Save {Math.round(((srv.mrpPrice - srv.sellingPrice) / srv.mrpPrice) * 100)}%

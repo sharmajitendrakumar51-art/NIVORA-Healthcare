@@ -48,8 +48,10 @@ interface AdminDashboardProps {
   onDeleteCategory?: (id: string) => Promise<any>;
   onDeleteService?: (id: string) => Promise<any>;
   users: User[];
-  onDeleteUser?: (id: string) => Promise<any>;
+  onDeleteUser: (id: string) => Promise<any>;
+  onUpdateUser?: (id: string, updated: Partial<User>) => Promise<any>;
   currentTab?: string;
+  adminUser?: any;
 }
 
 export default function AdminDashboard({
@@ -67,9 +69,17 @@ export default function AdminDashboard({
   onDeleteService,
   users = [],
   onDeleteUser,
-  currentTab = "categories"
+  onUpdateUser,
+  currentTab = "categories",
+  adminUser
 }: AdminDashboardProps) {
   const [successMsg, setSuccessMsg] = useState("");
+  const filteredUsers = users.filter(u => u.email !== adminUser?.email);
+
+  // User Management Modal States
+  const [viewingUser, setViewingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editUserForm, setEditUserForm] = useState<Partial<User>>({});
 
   // Doctor Management State
   const [doctorsList, setDoctorsList] = useState<Doctor[]>([]);
@@ -120,24 +130,16 @@ export default function AdminDashboard({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const base64Data = reader.result as string;
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: base64Data, name: file.name })
-        });
-        const data = await res.json();
-        if (data.success && data.url) {
-          setDoctorForm(prev => ({ ...prev, profilePhoto: data.url }));
-        }
-      } catch (err) {
-        console.error("Doctor photo upload error:", err);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const url = await handleFileUpload(file);
+      setDoctorForm(prev => ({ ...prev, profilePhoto: url }));
+      showToast("Doctor photo uploaded successfully!");
+    } catch (err: any) {
+      console.error("Doctor photo upload error:", err);
+      showToast("Failed to upload doctor photo");
+    } finally {
+      e.target.value = "";
+    }
   };
 
   const handleSaveDoctor = async (e: React.FormEvent) => {
@@ -400,6 +402,26 @@ export default function AdminDashboard({
   const srvFileRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (file: File): Promise<string> => {
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("file", file);
+      formData.append("name", file.name);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && (json.url || json.image)) {
+          return json.url || json.image;
+        }
+      }
+    } catch (err) {
+      console.warn("FormData upload failed, falling back to base64 upload:", err);
+    }
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async () => {
@@ -412,12 +434,14 @@ export default function AdminDashboard({
             },
             body: JSON.stringify({
               name: file.name,
-              data: base64Data
+              data: base64Data,
+              image: base64Data,
+              file: base64Data
             })
           });
           const json = await res.json();
-          if (json.success) {
-            resolve(json.url);
+          if (json.success && (json.url || json.image)) {
+            resolve(json.url || json.image);
           } else {
             reject(new Error(json.message || "Upload failed"));
           }
@@ -463,6 +487,7 @@ export default function AdminDashboard({
         showToast("Error uploading image: " + err.message);
       } finally {
         setIsUploadingCat(false);
+        e.target.value = "";
       }
     }
   };
@@ -496,6 +521,7 @@ export default function AdminDashboard({
         showToast("Error uploading image: " + err.message);
       } finally {
         setIsUploadingSrv(false);
+        e.target.value = "";
       }
     }
   };
@@ -710,7 +736,12 @@ export default function AdminDashboard({
                         </div>
                       ) : catImage ? (
                         <div className="absolute inset-0 flex items-center justify-center group bg-slate-900/40">
-                          <img src={getImageUrl(catImage)} alt="Preview" className="w-full h-full object-cover" />
+                          <img 
+                            src={getImageUrl(catImage)} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover" 
+                            onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1504813184591-015556c5c528?auto=format&fit=crop&w=500&q=80"; }}
+                          />
                           <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition duration-150 text-white">
                             <Upload className="w-5 h-5 mb-1" />
                             <span className="text-[9px] font-bold">REPLACE IMAGE</span>
@@ -769,15 +800,15 @@ export default function AdminDashboard({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-xs">
-                    {categories.map((cat) => (
+                    {categories.filter(cat => cat && cat.id && typeof cat.name === "string" && cat.name.length > 0).map((cat) => (
                       <tr key={cat.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="p-4 font-mono font-bold text-slate-700">{cat.id}</td>
                         <td className="p-4">
                           <img src={getImageUrl(cat.image)} alt={cat.name} className="w-10 h-10 object-cover rounded-lg border border-gray-200 bg-gray-50" />
                         </td>
                         <td className="p-4 font-bold text-slate-850">{cat.name}</td>
-                        <td className="p-4 text-gray-400 max-w-xs truncate">{cat.description}</td>
-                        <td className="p-4 text-gray-500">{new Date(cat.createdAt).toLocaleDateString()}</td>
+                        <td className="p-4 text-gray-400 max-w-xs truncate">{cat.description || "Healthcare Category"}</td>
+                        <td className="p-4 text-gray-500">{cat.createdAt ? new Date(cat.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</td>
                         <td className="p-4 text-right">
                           <div className="flex justify-end space-x-1.5">
                             <button 
@@ -908,7 +939,12 @@ export default function AdminDashboard({
                         </div>
                       ) : srvImage ? (
                         <div className="absolute inset-0 flex items-center justify-center group bg-slate-900/40">
-                          <img src={getImageUrl(srvImage)} alt="Preview" className="w-full h-full object-cover" />
+                          <img 
+                            src={getImageUrl(srvImage)} 
+                            alt="Preview" 
+                            className="w-full h-full object-cover" 
+                            onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=500&q=80"; }}
+                          />
                           <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition duration-150 text-white">
                             <Upload className="w-4 h-4 mb-0.5" />
                             <span className="text-[8px] font-bold">REPLACE IMAGE</span>
@@ -1061,36 +1097,37 @@ export default function AdminDashboard({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-xs">
-                    {services.map((srv) => (
+                    {services.filter(srv => srv && srv.id && typeof srv.name === "string" && srv.name.length > 0).map((srv) => (
                       <tr key={srv.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="p-4 font-mono font-semibold text-slate-600">{srv.id}</td>
                         <td className="p-4">
                           <img 
                             src={getImageUrl(srv.image || "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=120&q=80")} 
-                            alt={srv.name} 
+                            alt={srv.name || "Service"} 
                             className="w-10 h-10 object-cover rounded-lg border border-gray-200 bg-gray-50"
+                            onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=120&q=80"; }}
                           />
                         </td>
-                        <td className="p-4 font-bold text-slate-850">{srv.name}</td>
+                        <td className="p-4 font-bold text-slate-850">{srv.name || "Clinical Service"}</td>
                         <td className="p-4 text-gray-500">
-                          {categories.find(c => c.id === srv.categoryId)?.name || srv.categoryName || "General"}
+                          {categories.find(c => c && c.id === srv.categoryId)?.name || srv.categoryName || "General"}
                         </td>
-                        <td className="p-4 text-gray-400 font-mono">AED {srv.mrpPrice}</td>
-                        <td className="p-4 font-bold font-mono text-slate-800">AED {srv.sellingPrice}</td>
-                        <td className="p-4 text-slate-500">{srv.ageGroup}</td>
+                        <td className="p-4 text-gray-400 font-mono">AED {srv.mrpPrice ?? srv.sellingPrice ?? 100}</td>
+                        <td className="p-4 font-bold font-mono text-slate-800">AED {srv.sellingPrice ?? srv.mrpPrice ?? 80}</td>
+                        <td className="p-4 text-slate-500">{srv.ageGroup || "18+"}</td>
                         <td className="p-4">
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                            srv.status === "Active" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-red-50 text-red-600 border border-red-100"
+                            (srv.status || "Active") === "Active" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-red-50 text-red-600 border border-red-100"
                           }`}>
-                            {srv.status}
+                            {srv.status || "Active"}
                           </span>
                         </td>
                         <td className="p-4">
                           <button
-                            onClick={() => toggleServiceStatus(srv.id, srv.status)}
+                            onClick={() => toggleServiceStatus(srv.id, srv.status || "Active")}
                             className="text-gray-400 hover:text-primary-blue transition cursor-pointer"
                           >
-                            {srv.status === "Active" ? (
+                            {(srv.status || "Active") === "Active" ? (
                               <ToggleRight className="w-6 h-6 text-primary-green" />
                             ) : (
                               <ToggleLeft className="w-6 h-6 text-gray-300" />
@@ -1206,62 +1243,145 @@ export default function AdminDashboard({
         {/* TAB 6: REGISTRATION USERS */}
         {currentTab === "users" && (
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm animate-in fade-in duration-200">
-            <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-xs font-bold text-slate-850 uppercase tracking-wider">Registered Patients & Clients</h3>
+            <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center flex-wrap gap-2">
+              <div>
+                <h3 className="text-xs font-bold text-slate-850 uppercase tracking-wider">Registered Users & Patients</h3>
+                <p className="text-[11px] text-gray-500">View and manage all user accounts registered in MongoDB Atlas</p>
+              </div>
               <span className="px-2.5 py-1 bg-primary-blue/10 text-primary-blue text-[10px] font-bold rounded-lg border border-primary-blue/20">
-                Total Users: {users.length}
+                Total Users: {filteredUsers.length}
               </span>
             </div>
             <div className="p-4 overflow-x-auto">
-              {users.length === 0 ? (
+              {filteredUsers.length === 0 ? (
                 <div className="text-center py-8 text-gray-400 text-xs font-semibold">
                   No registered users found in the system.
                 </div>
               ) : (
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs whitespace-nowrap">
                   <thead>
                     <tr className="bg-gray-100/50 border-b border-gray-150 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                      <th className="p-3">Patient ID</th>
+                      <th className="p-3">Photo</th>
+                      <th className="p-3">User ID</th>
                       <th className="p-3">Full Name</th>
                       <th className="p-3">Email Address</th>
-                      <th className="p-3">Phone Number</th>
-                      <th className="p-3">Registered Status</th>
+                      <th className="p-3">Mobile Number</th>
+                      <th className="p-3">Gender</th>
+                      <th className="p-3">Date of Birth</th>
+                      <th className="p-3">Address</th>
+                      <th className="p-3">Registration Date</th>
+                      <th className="p-3">Account Status</th>
+                      <th className="p-3">Email Verification</th>
+                      <th className="p-3">Last Login</th>
                       <th className="p-3 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {users.map((u) => (
-                      <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="p-3 font-mono font-bold text-slate-700">{u.id}</td>
-                        <td className="p-3 font-bold text-slate-850">{u.firstName} {u.lastName}</td>
-                        <td className="p-3 font-semibold text-slate-600">{u.email}</td>
-                        <td className="p-3 text-gray-500">{u.phone || "N/A"}</td>
-                        <td className="p-3">
-                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[9px] font-bold rounded border border-emerald-100">
-                            ACTIVE
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <div className="flex justify-center">
-                            {onDeleteUser && (
-                              <button 
-                                onClick={() => {
-                                  setDeleteConfirm({
-                                    type: "user",
-                                    id: u.id,
-                                    name: `${u.firstName} ${u.lastName}`
-                                  });
-                                }}
-                                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition"
-                                title="Delete User"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                    {filteredUsers.map((u) => {
+                      const isDeactivated = (u.accountStatus || u.status || "Active").toLowerCase() === "deactivated";
+                      const isVerified = u.emailVerified === true || u.emailVerified === "true" || u.emailVerified === "Verified";
+
+                      return (
+                        <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="p-3">
+                            {u.profilePhoto ? (
+                              <img src={u.profilePhoto} alt={u.firstName} className="w-8 h-8 rounded-full object-cover border border-gray-200" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-primary-blue/10 text-primary-blue font-bold flex items-center justify-center text-xs border border-primary-blue/20">
+                                {(u.firstName?.[0] || "U").toUpperCase()}
+                              </div>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="p-3 font-mono font-bold text-slate-700">{u.id}</td>
+                          <td className="p-3 font-bold text-slate-850">{u.firstName} {u.lastName}</td>
+                          <td className="p-3 font-semibold text-slate-600">{u.email}</td>
+                          <td className="p-3 text-gray-600">{u.phone || "N/A"}</td>
+                          <td className="p-3 text-gray-600">{u.gender || "N/A"}</td>
+                          <td className="p-3 text-gray-600">{u.dob || u.dateOfBirth || "N/A"}</td>
+                          <td className="p-3 text-gray-600 max-w-[150px] truncate" title={u.address || "N/A"}>{u.address || "N/A"}</td>
+                          <td className="p-3 text-gray-600">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "N/A"}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 text-[9px] font-bold rounded border ${
+                              isDeactivated 
+                                ? "bg-rose-50 text-rose-600 border-rose-100" 
+                                : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                            }`}>
+                              {isDeactivated ? "DEACTIVATED" : "ACTIVE"}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 text-[9px] font-bold rounded border ${
+                              isVerified 
+                                ? "bg-blue-50 text-blue-600 border-blue-100" 
+                                : "bg-amber-50 text-amber-600 border-amber-100"
+                            }`}>
+                              {isVerified ? "VERIFIED" : "UNVERIFIED"}
+                            </span>
+                          </td>
+                          <td className="p-3 text-gray-600">{u.lastLogin ? new Date(u.lastLogin).toLocaleString() : "N/A"}</td>
+                          <td className="p-3">
+                            <div className="flex items-center justify-center space-x-1">
+                              {/* View Button */}
+                              <button
+                                onClick={() => setViewingUser(u)}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                                title="View Details"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Edit Button */}
+                              <button
+                                onClick={() => {
+                                  setEditingUser(u);
+                                  setEditUserForm({ ...u });
+                                }}
+                                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
+                                title="Edit User"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Activate / Deactivate Toggle */}
+                              <button
+                                onClick={async () => {
+                                  const newStatus = isDeactivated ? "Active" : "Deactivated";
+                                  if (onUpdateUser) {
+                                    await onUpdateUser(u.id, { accountStatus: newStatus, status: newStatus });
+                                    showToast(`User status updated to ${newStatus}`);
+                                  }
+                                }}
+                                className={`p-1.5 rounded-lg transition cursor-pointer ${
+                                  isDeactivated 
+                                    ? "text-emerald-600 hover:bg-emerald-50" 
+                                    : "text-amber-600 hover:bg-amber-50"
+                                }`}
+                                title={isDeactivated ? "Activate User" : "Deactivate User"}
+                              >
+                                {isDeactivated ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
+                              </button>
+
+                              {/* Delete Button */}
+                              {onDeleteUser && (
+                                <button 
+                                  onClick={() => {
+                                    setDeleteConfirm({
+                                      type: "user",
+                                      id: u.id,
+                                      name: `${u.firstName} ${u.lastName}`
+                                    });
+                                  }}
+                                  className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                                  title="Delete User"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
@@ -2553,6 +2673,247 @@ export default function AdminDashboard({
           currentUserRole="admin"
           currentUserName="Nivora Medical Admin / DHA Specialist"
         />
+      )}
+
+      {/* View User Details Modal */}
+      {viewingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white border border-gray-200 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white">
+              <div className="flex items-center space-x-2">
+                <Users className="w-5 h-5 text-primary-green" />
+                <h4 className="font-bold text-sm font-display">User Profile Details</h4>
+              </div>
+              <button
+                onClick={() => setViewingUser(null)}
+                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-xl border border-gray-150">
+                {viewingUser.profilePhoto ? (
+                  <img src={viewingUser.profilePhoto} alt={viewingUser.firstName} className="w-14 h-14 rounded-full object-cover border-2 border-primary-green" />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-primary-green text-white font-black flex items-center justify-center text-xl shadow-inner">
+                    {(viewingUser.firstName?.[0] || "U").toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <h5 className="font-bold text-base text-slate-900">{viewingUser.firstName} {viewingUser.lastName}</h5>
+                  <p className="text-gray-500 font-mono text-[11px]">ID: {viewingUser.id}</p>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <span className={`px-2 py-0.5 text-[9px] font-bold rounded border ${
+                      (viewingUser.accountStatus || viewingUser.status || "Active").toLowerCase() === "deactivated"
+                        ? "bg-rose-50 text-rose-600 border-rose-100"
+                        : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                    }`}>
+                      {viewingUser.accountStatus || viewingUser.status || "Active"}
+                    </span>
+                    <span className="px-2 py-0.5 text-[9px] font-bold rounded border bg-blue-50 text-blue-600 border-blue-100">
+                      {viewingUser.emailVerified ? "Email Verified" : "Unverified"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 bg-gray-50/70 p-4 rounded-xl border border-gray-150 text-slate-700">
+                <div>
+                  <span className="block font-bold text-gray-400 uppercase text-[9px]">Email Address</span>
+                  <span className="font-semibold text-slate-800">{viewingUser.email}</span>
+                </div>
+                <div>
+                  <span className="block font-bold text-gray-400 uppercase text-[9px]">Phone Number</span>
+                  <span className="font-semibold text-slate-800">{viewingUser.phone || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="block font-bold text-gray-400 uppercase text-[9px]">Gender</span>
+                  <span className="font-semibold text-slate-800">{viewingUser.gender || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="block font-bold text-gray-400 uppercase text-[9px]">Date of Birth</span>
+                  <span className="font-semibold text-slate-800">{viewingUser.dob || viewingUser.dateOfBirth || "N/A"}</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="block font-bold text-gray-400 uppercase text-[9px]">Address</span>
+                  <span className="font-semibold text-slate-800">{viewingUser.address || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="block font-bold text-gray-400 uppercase text-[9px]">Registration Date</span>
+                  <span className="font-semibold text-slate-800">{viewingUser.createdAt ? new Date(viewingUser.createdAt).toLocaleDateString() : "N/A"}</span>
+                </div>
+                <div>
+                  <span className="block font-bold text-gray-400 uppercase text-[9px]">Last Login</span>
+                  <span className="font-semibold text-slate-800">{viewingUser.lastLogin ? new Date(viewingUser.lastLogin).toLocaleString() : "N/A"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setViewingUser(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold cursor-pointer text-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Details Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white border border-gray-200 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white">
+              <div className="flex items-center space-x-2">
+                <Edit className="w-5 h-5 text-amber-400" />
+                <h4 className="font-bold text-sm font-display">Edit User Profile</h4>
+              </div>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (editingUser && onUpdateUser) {
+                  await onUpdateUser(editingUser.id, editUserForm);
+                  showToast("User profile updated successfully");
+                  setEditingUser(null);
+                }
+              }}
+              className="p-6 space-y-4 text-xs"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">First Name</label>
+                  <input
+                    type="text"
+                    value={editUserForm.firstName || ""}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, firstName: e.target.value })}
+                    required
+                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-blue/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={editUserForm.lastName || ""}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, lastName: e.target.value })}
+                    required
+                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-blue/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    value={editUserForm.email || ""}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
+                    required
+                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-blue/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Mobile Phone</label>
+                  <input
+                    type="text"
+                    value={editUserForm.phone || ""}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })}
+                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-blue/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Gender</label>
+                  <select
+                    value={editUserForm.gender || "Male"}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, gender: e.target.value })}
+                    className="w-full p-2 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-primary-blue/20"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={editUserForm.dob || editUserForm.dateOfBirth || ""}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, dob: e.target.value, dateOfBirth: e.target.value })}
+                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-blue/20 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Address</label>
+                <input
+                  type="text"
+                  value={editUserForm.address || ""}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, address: e.target.value })}
+                  className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-blue/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Account Status</label>
+                  <select
+                    value={editUserForm.accountStatus || editUserForm.status || "Active"}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, accountStatus: e.target.value, status: e.target.value })}
+                    className="w-full p-2 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-primary-blue/20"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Deactivated">Deactivated</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Email Verification</label>
+                  <select
+                    value={editUserForm.emailVerified ? "true" : "false"}
+                    onChange={(e) => setEditUserForm({ ...editUserForm, emailVerified: e.target.value === "true" })}
+                    className="w-full p-2 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-primary-blue/20"
+                  >
+                    <option value="true">Verified</option>
+                    <option value="false">Unverified</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-4 bg-gray-50 -mx-6 -mb-6 mt-4 border-t border-gray-200 flex justify-end space-x-2 rounded-b-2xl">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 hover:bg-gray-100 rounded-xl font-bold cursor-pointer text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary-green hover:bg-primary-green-dark text-white font-bold rounded-xl shadow-sm cursor-pointer text-xs"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

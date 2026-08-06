@@ -150,27 +150,57 @@ export function getTranslation(lang: Language, key: string): string {
 }
 
 export function getImageUrl(imagePath?: string): string {
-  if (!imagePath) {
-    return "https://images.unsplash.com/photo-1504813184591-015556c5c528?auto=format&fit=crop&w=500&q=80";
+  const fallback = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=500&q=80";
+  if (!imagePath || typeof imagePath !== "string" || imagePath.trim() === "" || imagePath === "null" || imagePath === "undefined") {
+    return fallback;
   }
   
+  const trimmed = imagePath.trim();
   if (
-    imagePath.startsWith("http://") || 
-    imagePath.startsWith("https://") || 
-    imagePath.startsWith("data:")
+    trimmed.startsWith("http://") || 
+    trimmed.startsWith("https://") || 
+    trimmed.startsWith("data:")
   ) {
-    return imagePath;
+    return trimmed;
   }
-  
-  // Normalize public/uploads or /public/uploads or uploads to /uploads
-  let cleaned = imagePath.replace(/^\/?public\/uploads\//, "/uploads/").replace(/^\/?public\//, "/");
-  if (!cleaned.startsWith("/")) {
+
+  // Convert Windows backslashes
+  let cleaned = trimmed.replace(/\\/g, "/");
+
+  // Fix duplicate /uploads/uploads
+  cleaned = cleaned.replace(/\/uploads\/uploads\//g, "/uploads/");
+
+  // Strip public prefix
+  cleaned = cleaned.replace(/^\/?public\/uploads\//, "/uploads/");
+  cleaned = cleaned.replace(/^\/?public\//, "/");
+
+  // Handle "uploads/file.ext" -> "/uploads/file.ext"
+  if (cleaned.startsWith("uploads/")) {
     cleaned = `/${cleaned}`;
   }
 
-  // Resolve base URL for multi-origin deployments
+  // Handle filenames missing leading /uploads/
+  if (!cleaned.startsWith("/uploads/")) {
+    if (cleaned.startsWith("/")) {
+      cleaned = `/uploads${cleaned}`;
+    } else {
+      cleaned = `/uploads/${cleaned}`;
+    }
+  }
+
   const apiBaseUrl = (import.meta as any).env?.VITE_API_URL || "";
-  
-  return `${apiBaseUrl}${cleaned}`;
+  let fullUrl = `${apiBaseUrl}${cleaned}`;
+
+  // Cache-busting parameter: prevent browser HTTP cache from showing stale old image after edit
+  if (!fullUrl.includes("?")) {
+    const timeMatch = fullUrl.match(/upload_(\d+)_/);
+    if (timeMatch && timeMatch[1]) {
+      fullUrl += `?t=${timeMatch[1]}`;
+    } else {
+      fullUrl += `?v=${encodeURIComponent(cleaned)}`;
+    }
+  }
+
+  return fullUrl;
 }
 

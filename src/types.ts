@@ -183,6 +183,18 @@ export interface User {
   lastName: string;
   email: string;
   phone?: string;
+  gender?: string;
+  dob?: string;
+  dateOfBirth?: string;
+  address?: string;
+  profilePhoto?: string;
+  status?: string;
+  accountStatus?: string;
+  emailVerified?: boolean | string;
+  lastLogin?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  role?: string;
 }
 
 export interface DoctorPatientChatMessage {
